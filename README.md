@@ -1,3 +1,3 @@
 # DeepSymbolic
  
-Using many methods to explain the neural networks.
+Using multiple methods to explain the neural networks.
