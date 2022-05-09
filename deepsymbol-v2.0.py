@@ -47,7 +47,7 @@ class DeepSymbol():
         mat1, mat2, mat3 = self.model()
         
         # find the symbol with max prob for each position in each matrix
-        # 不应该取最大，而是应该采样
+        # TODO 不应该取最大，而是应该采样
         idx1 = torch.argmax(mat1, dim=-1)
         idx2 = torch.argmax(mat2, dim=-1)
         idx3 = torch.argmax(mat3, dim=-1)
