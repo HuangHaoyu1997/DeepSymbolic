@@ -15,7 +15,7 @@ from CartPoleContinuous import CartPoleContinuousEnv
 
 env_name = 'CartPoleContinuous'
 env = CartPoleContinuousEnv()
-
+inpt_dim = env.observation_space.shape[0]
 env.seed(config.seed)                   # 随机数种子
 torch.manual_seed(config.seed)          # Gym、numpy、Pytorch都要设置随机数种子
 np.random.seed(config.seed)
@@ -37,7 +37,9 @@ class DeepSymbol():
     def select_action(self, idxs, state):
         # state = torch.tensor(state)
         action = self.execute_symbol_mat(state, idxs)
-        action = tanh(action.item(), alpha=0.1)
+        # print(action)
+        action = tanh(action.item(), alpha=0.05)
+        # print(action,'\n')
         return action
 
     def sym_mat(self,):
@@ -72,17 +74,17 @@ class DeepSymbol():
         return idxs, log_prob, entropies
     
     def execute_symbol_mat(self, state, idxs):
-        '''
-        do the symbolic calculation using state vector
-        '''
+        '''symbolic calculation using state vector'''
         tmp = torch.zeros((len(idxs), self.inpt_dim, self.inpt_dim), dtype=torch.float32)
         for ii, idx in enumerate(idxs):
             for i in range(self.inpt_dim):
                 for j in range(self.inpt_dim):
                     arity = self.func_set[idx[i,j]].arity
+                    # 第一个symbol matrix
                     if ii == 0:
                         if arity == 1: inpt = torch.tensor([state[i]])
                         elif arity == 2: inpt = torch.tensor([state[i], state[j]])
+                    # 其后symbol matrix
                     elif ii > 0:
                         if arity == 1: 
                             inpt = [tmp[ii-1,:,:].sum(1)[i]]
@@ -94,18 +96,17 @@ class DeepSymbol():
         return tmp[-1].sum()
     
     def update_parameters(self, reward, log_prob, entropy):# 更新参数
-        R = torch.tensor(reward)                                # 倒序计算累计期望
+        R = torch.tensor(reward)
         # loss = loss - (log_probs[i]*(Variable(R).expand_as(log_probs[i])).cuda()).sum() - (0.0001*entropies[i].cuda()).sum()
         # print(log_probs[i], rewards[i], R, entropies[i])
-        loss = -log_prob*R - 0.001*entropy
+        loss = -log_prob*R - 0.01*entropy
 
         self.optimizer.zero_grad()
         loss.backward()
         utils.clip_grad_norm_(self.model.parameters(), 40)             # 梯度裁剪，梯度的最大L2范数=40
         self.optimizer.step()
 
-
-ds = DeepSymbol(inpt_dim=4, func_set=func_set, lr=config.lr)
+ds = DeepSymbol(inpt_dim, func_set, config.lr)
 dir = './results/ckpt_deepsymbol_' + env_name
 
 if not os.path.exists(dir):    
@@ -124,16 +125,10 @@ def rollout(env, policy:DeepSymbol, num_episode=config.rollout_episode):
             if done: break
     return reward / num_episode, log_prob, entropy
 
+# training
 for i_episode in range(config.num_episodes):
     reward, log_prob, entropy = rollout(env, ds)
     ds.update_parameters(reward, log_prob, entropy)
     if i_episode % config.ckpt_freq == 0:
         torch.save(ds.model.state_dict(), os.path.join(dir, 'VPG-'+str(i_episode)+'.pkl'))
     print("Episode: {}, reward: {}".format(i_episode, reward))
-
-env.close()
-
-
-
-
-
