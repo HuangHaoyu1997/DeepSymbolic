@@ -10,7 +10,7 @@ import argparse, math, os, sys, gym, torch
 from function import *
 from utils import tanh
 from configuration import config
-from CartPoleContinuous import CartPoleContinuousEnv
+from env.CartPoleContinuous import CartPoleContinuousEnv
 import torch.nn.functional as F
 import torch.optim as optim
 

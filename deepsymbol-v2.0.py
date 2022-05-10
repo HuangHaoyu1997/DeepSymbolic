@@ -4,12 +4,12 @@ import torch.nn.utils as utils
 import torch.optim as optim
 from torch.distributions import Categorical, Beta
 import numpy as np
-from function import func_set
+from core.function import func_set
 
 from utils import tanh
-from models import Model
+from core.models import Model
 from configuration import config
-from CartPoleContinuous import CartPoleContinuousEnv
+from env.CartPoleContinuous import CartPoleContinuousEnv
 
 # cma.CMAEvolutionStrategy()
 
