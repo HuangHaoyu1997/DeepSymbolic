@@ -45,10 +45,19 @@ class DeepSymbol():
     def sym_mat(self,):
         '''get symbol matrix for policy'''
         mat1, mat2, mat3 = self.model()
-        
+        p1 = Categorical(mat1)
+        p2 = Categorical(mat2)
+        p3 = Categorical(mat3)
+        idx1 = p1.sample()
+        idx2 = p2.sample()
+        idx3 = p3.sample()
+        idxs = [idx1, idx2, idx3]
+        log_prob = p1.log_prob(idx1).sum() + p2.log_prob(idx2).sum() + p3.log_prob(idx3).sum()
+        entropies = p1.entropy().log().sum() + p2.entropy().log().sum() + p3.entropy().log().sum()
+        print(log_prob, entropies)
         # find the symbol with max prob for each position in each matrix
         # TODO 不应该取最大，而是应该采样
-        idx1 = torch.argmax(mat1, dim=-1)
+        '''idx1 = torch.argmax(mat1, dim=-1)
         idx2 = torch.argmax(mat2, dim=-1)
         idx3 = torch.argmax(mat3, dim=-1)
         idxs = [idx1, idx2, idx3]
@@ -70,7 +79,7 @@ class DeepSymbol():
                     dist = Categorical(p)
                     entropy = dist.entropy()
                     entropies += entropy
-        
+        '''
         return idxs, log_prob, entropies
     
     def execute_symbol_mat(self, state, idxs):
