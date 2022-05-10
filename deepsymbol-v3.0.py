@@ -1,13 +1,14 @@
 '''
 using CMA-ES to optimize symbol matrix
 '''
-import argparse, math, os, sys, gym, cma
 import torch
 import torch.nn.utils as utils
 import torch.optim as optim
 from torch.distributions import Categorical, Beta
 import numpy as np
 from core.function import func_set
+import argparse, math, os, sys, gym, cma
+from copy import deepcopy
 
 from utils import tanh
 from core.models import Model
@@ -75,15 +76,7 @@ class DeepSymbol():
                     # print(idx[i,j], self.func_set[idx[i,j]].name, inpt)
                     tmp[ii,i,j] = self.func_set[idx[i,j]](*inpt)
         return tmp[-1,:,:].sum()
-    
-    def update_parameters(self, solution, fitness):
-        self.es.tell(solution, fitness)
 
-ds = DeepSymbol(inpt_dim, func_set, config.lr)
-es = cma.CMAEvolutionStrategy([0.] * ds.model.num_params,
-                                config.sigma_init,
-                                {'popsize': config.pop_size
-                                    })
 
 dir = './results/ckpt_deepsymbol_' + env_name
 
@@ -103,10 +96,21 @@ def rollout(env, policy:DeepSymbol, num_episode=config.rollout_episode):
             if done: break
     return reward / num_episode, log_prob, entropy
 
+ds = DeepSymbol(inpt_dim, func_set, config.lr)
+es = cma.CMAEvolutionStrategy([0.] * ds.model.num_params,
+                                config.sigma_init,
+                                {'popsize': config.pop_size
+                                    })
 # training
 for epi in range(config.num_episodes):
+    solutions = np.array(es.ask(), dtype=np.float32)
+    for i in range(config.pop_size):
+        policy = deepcopy(ds)
+        policy.model.set_params(torch.tensor(solutions[i]))
+        rollout(env, policy)
+
     reward, log_prob, entropy = rollout(env, ds)
     ds.update_parameters(reward, log_prob, entropy)
-    if i_episode % config.ckpt_freq == 0:
+    if epi % config.ckpt_freq == 0:
         torch.save(ds.model.state_dict(), os.path.join(dir, 'VPG-'+str(epi)+'.pkl'))
     print("Episode: {}, reward: {}".format(epi, reward))
