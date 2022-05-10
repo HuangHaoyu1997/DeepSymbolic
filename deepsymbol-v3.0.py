@@ -2,12 +2,10 @@
 using CMA-ES to optimize symbol matrix
 '''
 import torch
-import torch.nn.utils as utils
-import torch.optim as optim
-from torch.distributions import Categorical, Beta
+from torch.distributions import Categorical
 import numpy as np
 from core.function import func_set
-import argparse, math, os, sys, gym, cma
+import argparse, math, os, sys, gym, cma, ray
 from copy import deepcopy
 
 from utils import tanh, compute_centered_ranks, compute_weight_decay
@@ -83,6 +81,7 @@ dir = './results/ckpt_deepsymbol_' + env_name
 if not os.path.exists(dir):    
     os.mkdir(dir)
 
+@ray.remote
 def rollout(env, policy:DeepSymbol, num_episode=config.rollout_episode):
     reward = 0
     for epi in range(num_episode):
@@ -94,7 +93,7 @@ def rollout(env, policy:DeepSymbol, num_episode=config.rollout_episode):
             state, r, done, _ = env.step(np.array([action]))
             reward += r
             if done: break
-    return reward / num_episode, log_prob, entropy
+    return reward / num_episode
 
 ds = DeepSymbol(inpt_dim, func_set, config.lr)
 es = cma.CMAEvolutionStrategy([0.] * ds.model.num_params,
@@ -102,19 +101,22 @@ es = cma.CMAEvolutionStrategy([0.] * ds.model.num_params,
                                 {'popsize': config.pop_size
                                     })
 # training
+ray.init(num_cpus = config.num_parallel)
 for epi in range(config.num_episodes):
     solutions = np.array(es.ask(), dtype=np.float32)
     results = []
     for i in range(config.pop_size):
         policy = deepcopy(ds)
         policy.model.set_params(torch.tensor(solutions[i]))
-        reward, _, _ = rollout(env, policy)
+        reward = rollout.remote(env, policy)
+        reward = ray.get(reward)
+        print(reward)
         results.append(reward)
     results = np.array(results)
     best_policy_idx = np.argmax(results)
     best_policy = deepcopy(policy)
     best_policy.model.set_params(solutions[best_policy_idx])
-    best_result, _, _ = rollout(env, best_policy)
+    best_result = rollout(env, best_policy)
     print('episode:', epi, 'mean:', np.average(results), 'max:', np.max(results), 'best:', best_result)
     ranks = compute_centered_ranks(results)
     es.tell(solutions, -ranks)
