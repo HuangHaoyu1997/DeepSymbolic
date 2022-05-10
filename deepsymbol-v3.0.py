@@ -1,3 +1,6 @@
+'''
+using CMA-ES to optimize symbol matrix
+'''
 import argparse, math, os, sys, gym, cma
 import torch
 import torch.nn.utils as utils
@@ -10,8 +13,6 @@ from utils import tanh
 from models import Model
 from configuration import config
 from CartPoleContinuous import CartPoleContinuousEnv
-
-# cma.CMAEvolutionStrategy()
 
 env_name = 'CartPoleContinuous'
 env = CartPoleContinuousEnv()
@@ -31,13 +32,17 @@ class DeepSymbol():
 
         self.model = Model(inpt_dim = self.inpt_dim,
                             dict_dim= self.dict_dim)
-        self.optimizer = optim.Adam(self.model.parameters(), lr=lr)
+        # self.optimizer = optim.Adam(self.model.parameters(), lr=lr)
+        self.es = cma.CMAEvolutionStrategy([0.] * self.model.num_params,
+                                        config.sigma_init,
+                                        {'popsize': config.pop_size
+                                            })
+
         self.model.train()
     
     def select_action(self, idxs, state):
         # state = torch.tensor(state)
         action = self.execute_symbol_mat(state, idxs)
-        # print(action)
         action = tanh(action.item(), alpha=0.05)
         # print(action,'\n')
         return action
