@@ -10,7 +10,7 @@ from core.function import func_set
 import argparse, math, os, sys, gym, cma
 from copy import deepcopy
 
-from utils import tanh
+from utils import tanh, compute_centered_ranks, compute_weight_decay
 from core.models import Model
 from configuration import config
 from env.CartPoleContinuous import CartPoleContinuousEnv
@@ -104,13 +104,20 @@ es = cma.CMAEvolutionStrategy([0.] * ds.model.num_params,
 # training
 for epi in range(config.num_episodes):
     solutions = np.array(es.ask(), dtype=np.float32)
+    results = []
     for i in range(config.pop_size):
         policy = deepcopy(ds)
         policy.model.set_params(torch.tensor(solutions[i]))
-        rollout(env, policy)
-
-    reward, log_prob, entropy = rollout(env, ds)
-    ds.update_parameters(reward, log_prob, entropy)
+        reward, _, _ = rollout(env, policy)
+        results.append(reward)
+    results = np.array(results)
+    best_policy_idx = np.argmax(results)
+    best_policy = deepcopy(policy)
+    best_policy.model.set_params(solutions[best_policy_idx])
+    best_result, _, _ = rollout(env, best_policy)
+    print('episode:', epi, 'mean:', np.average(results), 'max:', np.max(results), 'best:', best_result)
+    ranks = compute_centered_ranks(results)
+    es.tell(solutions, -ranks)
+    # print(results, ranks)
     if epi % config.ckpt_freq == 0:
-        torch.save(ds.model.state_dict(), os.path.join(dir, 'VPG-'+str(epi)+'.pkl'))
-    print("Episode: {}, reward: {}".format(epi, reward))
+        torch.save(best_policy.model.state_dict(), os.path.join(dir, 'CMA_ES-'+str(epi)+'.pkl'))
