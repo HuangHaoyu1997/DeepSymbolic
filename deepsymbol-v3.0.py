@@ -56,7 +56,7 @@ for epi in range(config.num_episodes):
         policy.model.set_params(torch.tensor(solutions[i]))
         reward = rollout.remote(env, policy)
         reward = ray.get(reward)
-        print(reward)
+        # print(reward)
         results.append(reward)
     results = np.array(results)
 
