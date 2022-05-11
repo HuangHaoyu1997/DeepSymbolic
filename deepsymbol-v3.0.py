@@ -5,11 +5,10 @@ import torch
 from torch.distributions import Categorical
 import numpy as np
 from core.function import func_set
-import argparse, math, os, sys, gym, cma, ray
+import argparse, math, os, sys, gym, cma, ray, time
 from copy import deepcopy
 
-from utils import tanh, compute_centered_ranks, compute_weight_decay
-from core.models import Model
+from utils import compute_centered_ranks, compute_weight_decay
 from configuration import config
 from env.CartPoleContinuous import CartPoleContinuousEnv
 from core.DeepSymbol_v3 import DeepSymbol
@@ -49,6 +48,7 @@ es = cma.CMAEvolutionStrategy([0.] * ds.model.num_params,
 ray.init(num_cpus = config.num_parallel)
 
 for epi in range(config.num_episodes):
+    tick = time.time()
     solutions = np.array(es.ask(), dtype=np.float32)
     results = []
     for i in range(config.pop_size):
@@ -59,13 +59,16 @@ for epi in range(config.num_episodes):
         print(reward)
         results.append(reward)
     results = np.array(results)
+
     best_policy_idx = np.argmax(results)
     best_policy = deepcopy(policy)
     best_policy.model.set_params(solutions[best_policy_idx])
-    best_result = rollout(env, best_policy)
-    print('episode:', epi, 'mean:', np.average(results), 'max:', np.max(results), 'best:', best_result)
+    best_result = rollout.remote(env, best_policy)
+    best_result = ray.get(best_result)
+
     ranks = compute_centered_ranks(results)
     es.tell(solutions, -ranks)
+    print('episode:', epi, 'mean:', np.average(results), 'max:', np.max(results), 'best:', best_result, 'time:', time.time()-tick)
     # print(results, ranks)
     if epi % config.ckpt_freq == 0:
         torch.save(best_policy.model.state_dict(), os.path.join(dir, 'CMA_ES-'+str(epi)+'.pkl'))

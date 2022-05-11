@@ -1,7 +1,7 @@
 import torch 
 from torch.distributions import Categorical
 from utils import tanh
-from models import Model
+from core.models import Model
 
 class DeepSymbol():
     def __init__(self, inpt_dim, func_set) -> None:
