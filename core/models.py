@@ -4,6 +4,9 @@ import torch.nn.functional as F
 import numpy as np
 
 class Model(nn.Module):
+    '''
+    Model for version 3.0
+    '''
     def __init__(self, inpt_dim, dict_dim, ):
         super(Model, self).__init__()
         self.inpt_dim = inpt_dim 
@@ -28,6 +31,7 @@ class Model(nn.Module):
     
     @property
     def num_params(self):
+        # 鉴于输入fc的是常数0，有用参数仅为各fc的bias
         return self.fc1.bias.data.size()[0]+self.fc2.bias.data.size()[0]+self.fc3.bias.data.size()[0]
         # return sum([np.prod(params.size()) for params in self.state_dict().values()])
     
