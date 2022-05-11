@@ -20,9 +20,7 @@ env.seed(config.seed)
 torch.manual_seed(config.seed)
 np.random.seed(config.seed)
 
-
-
-dir = './results/ckpt_deepsymbol_' + env_name
+dir = './results/ckpt_deepsymbol-v3_' + env_name
 
 if not os.path.exists(dir):    
     os.mkdir(dir)
@@ -49,6 +47,7 @@ es = cma.CMAEvolutionStrategy([0.] * ds.model.num_params,
 
 # training
 ray.init(num_cpus = config.num_parallel)
+
 for epi in range(config.num_episodes):
     solutions = np.array(es.ask(), dtype=np.float32)
     results = []
@@ -70,3 +69,5 @@ for epi in range(config.num_episodes):
     # print(results, ranks)
     if epi % config.ckpt_freq == 0:
         torch.save(best_policy.model.state_dict(), os.path.join(dir, 'CMA_ES-'+str(epi)+'.pkl'))
+
+ray.shutdown()
