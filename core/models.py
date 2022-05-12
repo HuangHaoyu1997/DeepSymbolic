@@ -27,11 +27,11 @@ class Model(nn.Module):
         mat3 = self.fc3(torch.tensor([0.]))
         mat3 = mat3.view(self.inpt_dim, self.inpt_dim, self.dict_dim)
         mat3 = F.softmax(mat3, dim=-1) # mat3.shape=(4,4,5)
-        return mat1, mat2, mat3
+        return [mat1, mat2, mat3]
     
     @property
     def num_params(self):
-        # 鉴于输入fc的是常数0，有用参数仅为各fc的bias
+        # 鉴于输入fc的是常数0, 有用参数仅为各fc的bias
         return self.fc1.bias.data.size()[0]+self.fc2.bias.data.size()[0]+self.fc3.bias.data.size()[0]
         # return sum([np.prod(params.size()) for params in self.state_dict().values()])
     

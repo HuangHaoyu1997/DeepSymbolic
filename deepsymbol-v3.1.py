@@ -1,5 +1,6 @@
 '''
 using CMA-ES to optimize symbol matrix
+
 '''
 import torch
 from torch.distributions import Categorical
@@ -12,8 +13,12 @@ from utils import compute_centered_ranks, compute_weight_decay
 from configuration import config
 from env.CartPoleContinuous import CartPoleContinuousEnv
 from core.DeepSymbol_v3 import DeepSymbol
-env_name = 'CartPoleContinuous'
-env = CartPoleContinuousEnv()
+
+# env_name = 'CartPoleContinuous'
+# env = CartPoleContinuousEnv()
+
+env_name = 'LunarLander-v2'
+env = gym.make(env_name)
 inpt_dim = env.observation_space.shape[0]
 env.seed(config.seed)
 torch.manual_seed(config.seed)

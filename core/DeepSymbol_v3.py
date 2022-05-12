@@ -1,3 +1,9 @@
+'''
+根据Model输出的symbol operator matrix
+以及environment给出的observation
+计算出相应的action
+'''
+
 import torch 
 from torch.distributions import Categorical
 from utils import tanh
@@ -20,16 +26,22 @@ class DeepSymbol():
 
     def sym_mat(self,):
         '''get symbol matrix for policy'''
-        mat1, mat2, mat3 = self.model()
-        p1 = Categorical(mat1)
-        p2 = Categorical(mat2)
-        p3 = Categorical(mat3)
-        idx1 = p1.sample()
-        idx2 = p2.sample()
-        idx3 = p3.sample()
-        idxs = [idx1, idx2, idx3]
-        log_prob = p1.log_prob(idx1).sum() + p2.log_prob(idx2).sum() + p3.log_prob(idx3).sum()
-        entropies = p1.entropy().log().sum() + p2.entropy().log().sum() + p3.entropy().log().sum()
+        mats = self.model()
+        dist = [Categorical(mat) for mat in mats]
+        idxs = [p.sample() for p in dist]
+        log_prob = torch.sum([p.log_prob(idx).sum() for p, idx in zip(dist, idxs)])
+        entropies = torch.sum([p.entropy().log().sum() for p in dist])
+        
+        # mat1, mat2, mat3 = self.model()
+        # p1 = Categorical(mat1)
+        # p2 = Categorical(mat2)
+        # p3 = Categorical(mat3)
+        # idx1 = p1.sample()
+        # idx2 = p2.sample()
+        # idx3 = p3.sample()
+        # idxs = [idx1, idx2, idx3]
+        # log_prob = p1.log_prob(idx1).sum() + p2.log_prob(idx2).sum() + p3.log_prob(idx3).sum()
+        # entropies = p1.entropy().log().sum() + p2.entropy().log().sum() + p3.entropy().log().sum()
         # print(log_prob, entropies)
         
         return idxs, log_prob, entropies
