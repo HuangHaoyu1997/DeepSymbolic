@@ -26,7 +26,7 @@ if not os.path.exists(dir):
     os.mkdir(dir)
 
 @ray.remote
-def rollout(env, ds:DeepSymbol, solution, num_episode=config.rollout_episode):
+def rollout(env, ds, solution, num_episode=config.rollout_episode):
     policy = deepcopy(ds)
     policy.model.set_params(torch.tensor(solution))
     reward = 0
@@ -54,19 +54,18 @@ for epi in range(config.num_episodes):
     results = []
     rewards = [rollout.remote(env, ds, solution) for solution in solutions]
     rewards = ray.get(rewards)
-    print(rewards)
-    results = np.array(results)
+    rewards = np.array(rewards)
 
-    best_policy_idx = np.argmax(results)
+    best_policy_idx = np.argmax(rewards)
     best_policy = deepcopy(ds)
     best_policy.model.set_params(solutions[best_policy_idx])
-    best_result = rollout.remote(env, ds, solutions[best_policy_idx])
-    best_result = ray.get(best_result)
+    best_reward = rollout.remote(env, ds, solutions[best_policy_idx], 20)
+    best_reward = ray.get(best_reward)
 
-    ranks = compute_centered_ranks(results)
+    ranks = compute_centered_ranks(rewards)
     es.tell(solutions, -ranks)
-    print('episode:', epi, 'mean:', np.round(results.mean(), 2), 'max:', np.max(results), 'best:', best_result, 'time:', time.time()-tick)
-    # print(results, ranks)
+    print('episode:', epi, 'mean:', np.round(rewards.mean(), 2), 'max:', np.max(rewards), 'best:', best_reward, 'time:', time.time()-tick)
+    # print(rewards, ranks)
     if epi % config.ckpt_freq == 0:
         torch.save(best_policy.model.state_dict(), os.path.join(dir, 'CMA_ES-'+str(epi)+'.pkl'))
 
