@@ -65,7 +65,7 @@ for epi in range(config.num_episodes):
 
     ranks = compute_centered_ranks(results)
     es.tell(solutions, -ranks)
-    print('episode:', epi, 'mean:', np.average(results), 'max:', np.max(results), 'best:', best_result, 'time:', time.time()-tick)
+    print('episode:', epi, 'mean:', np.round(results.mean(), 2), 'max:', np.max(results), 'best:', best_result, 'time:', time.time()-tick)
     # print(results, ranks)
     if epi % config.ckpt_freq == 0:
         torch.save(best_policy.model.state_dict(), os.path.join(dir, 'CMA_ES-'+str(epi)+'.pkl'))
