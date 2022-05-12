@@ -30,7 +30,7 @@ def rollout(env, policy:DeepSymbol, num_episode=config.rollout_episode):
     for epi in range(num_episode):
         done = False
         state = env.reset()
-        idx, log_prob, entropy = ds.sym_mat()
+        idx, log_prob, entropy = policy.sym_mat()
         for t in range(config.num_steps):
             action = policy.select_action(idx, state)
             state, r, done, _ = env.step(np.array([action]))
