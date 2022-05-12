@@ -18,6 +18,7 @@ inpt_dim = env.observation_space.shape[0]
 env.seed(config.seed)
 torch.manual_seed(config.seed)
 np.random.seed(config.seed)
+ray.init(num_cpus = config.num_parallel)
 
 dir = './results/ckpt_deepsymbol-v3_' + env_name
 
@@ -45,7 +46,7 @@ es = cma.CMAEvolutionStrategy([0.] * ds.model.num_params,
                                     })
 
 # training
-ray.init(num_cpus = config.num_parallel)
+
 
 for epi in range(config.num_episodes):
     tick = time.time()
