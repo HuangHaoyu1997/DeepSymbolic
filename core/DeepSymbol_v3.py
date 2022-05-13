@@ -4,7 +4,8 @@
 计算出相应的action
 '''
 
-import torch 
+import torch
+import numpy as np
 from torch.distributions import Categorical
 from core.utils import tanh
 from core.models import Model, Linear
@@ -22,8 +23,9 @@ class DeepSymbol():
     def select_action(self, idxs, state):
         # state = torch.tensor(state)
         action = self.execute_symbol_mat(state, idxs)
-        action = self.fc(action[2])
-        action = tanh(action.item(), alpha=0.05)
+        action = self.fc(action[2].numpy())
+        action = np.random.choice(np.arange(self.out_dim), p=action)
+        # action = tanh(action, alpha=0.05)
         # print(action,'\n')
         return action
 
@@ -77,3 +79,11 @@ if __name__ == '__main__':
     ds = DeepSymbol(4, func_set)
     idxs, _, _ = ds.sym_mat()
     print(ds.execute_symbol_mat([1., 2., 3., 4.], idxs))
+
+    from core.DeepSymbol_v3 import DeepSymbol
+    from core.function import func_set
+    ds = DeepSymbol(4,4,func_set)
+    idxs, _, _ = ds.sym_mat()
+    print(ds.select_action(idxs, [1.,2.,3.,4.]))
+    print(ds.fc.num_params)
+

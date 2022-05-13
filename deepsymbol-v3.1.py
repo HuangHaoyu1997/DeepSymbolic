@@ -5,7 +5,7 @@ using CMA-ES to optimize symbol matrix
 import torch
 import numpy as np
 from core.function import func_set
-import argparse, math, os, sys, gym, cma, ray, time
+import argparse, math, os, sys, gym, cma, ray, time, pickle
 from copy import deepcopy
 
 from core.utils import compute_centered_ranks, compute_weight_decay
@@ -34,7 +34,9 @@ if not os.path.exists(dir):
 @ray.remote
 def rollout(env, ds, solution, num_episode=config.rollout_episode):
     policy = deepcopy(ds)
-    policy.model.set_params(torch.tensor(solution))
+    policy.model.set_params(torch.tensor(solution[:policy.model.num_params]))
+    policy.fc.set_params(solution[policy.model.num_params:])
+    
     reward = 0
     for epi in range(num_episode):
         done = False
@@ -47,8 +49,8 @@ def rollout(env, ds, solution, num_episode=config.rollout_episode):
             if done: break
     return reward / num_episode
 
-ds = DeepSymbol(inpt_dim, func_set)
-es = cma.CMAEvolutionStrategy([0.] * ds.model.num_params,
+ds = DeepSymbol(inpt_dim, out_dim, func_set)
+es = cma.CMAEvolutionStrategy([0.] * (ds.model.num_params + ds.fc.num_params),
                                 config.sigma_init,
                                 {'popsize': config.pop_size
                                     })
@@ -64,7 +66,8 @@ for epi in range(config.num_episodes):
 
     best_policy_idx = np.argmax(rewards)
     best_policy = deepcopy(ds)
-    best_policy.model.set_params(solutions[best_policy_idx])
+    best_policy.model.set_params(solutions[best_policy_idx][:ds.model.num_params])
+    best_policy.fc.set_params(solutions[best_policy_idx][ds.model.num_params:])
     best_reward = rollout.remote(env, ds, solutions[best_policy_idx], 20)
     best_reward = ray.get(best_reward)
 
@@ -73,6 +76,8 @@ for epi in range(config.num_episodes):
     print('episode:', epi, 'mean:', np.round(rewards.mean(), 2), 'max:', np.max(rewards), 'best:', best_reward, 'time:', time.time()-tick)
     # print(rewards, ranks)
     if epi % config.ckpt_freq == 0:
-        torch.save(best_policy.model.state_dict(), os.path.join(dir, 'CMA_ES-'+str(epi)+'.pkl'))
+        # torch.save(best_policy.model.state_dict(), os.path.join(dir, 'CMA_ES-'+str(epi)+'.pkl'))
+        with open(os.path.join(dir, 'CMA_ES-'+str(epi)+'.pkl'), 'wb') as f:
+            pickle.dump(best_policy)
 
 ray.shutdown()

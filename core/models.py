@@ -63,13 +63,16 @@ class Linear:
         self.bias = np.zeros((out_dim), dtype=np.float32)
         
     def relu(self, x):
-        return np.max(x, 0)
+        return np.maximum(x, 0)
+    
+    def softmax(self, x):
+        return np.exp(x)/(np.exp(x).sum())
 
     def __call__(self, x):
         Y = np.matmul(x, self.weight) + self.bias
-        return self.relu(Y)
-    
-    def get_params(self,):
+        return self.softmax(self.relu(Y))
+    @property
+    def num_params(self,):
         return self.weight.size + self.bias.size
 
     def set_params(self, param):
