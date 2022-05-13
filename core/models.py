@@ -57,6 +57,7 @@ class Model(nn.Module):
 
 class Linear:
     def __init__(self, in_dim, out_dim) -> None:
+        
         self.weight = np.zeros((in_dim, out_dim), dtype=np.float32)
         self.bias = np.zeros((out_dim), dtype=np.float32)
         
@@ -71,6 +72,10 @@ class Linear:
         return self.weight.size + self.bias.size
 
     def set_params(self, param):
+        weight_param = param[:self.weight.size]
+        bias_param = param[self.weight.size:]
+        self.weight = weight_param.reshape(self.weight.shape)
+        self.bias = bias_param.reshape(self.bias.shape)
 
 if __name__ == '__main__':
     
