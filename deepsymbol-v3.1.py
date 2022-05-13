@@ -44,7 +44,8 @@ def rollout(env, ds, solution, num_episode=config.rollout_episode):
         idx, log_prob, entropy = policy.sym_mat()
         for t in range(config.num_steps):
             action = policy.select_action(idx, state)
-            state, r, done, _ = env.step(np.array([action]))
+            state, r, done, _ = env.step(action)
+            # state, r, done, _ = env.step(np.array([action]))
             reward += r
             if done: break
     return reward / num_episode
@@ -78,6 +79,6 @@ for epi in range(config.num_episodes):
     if epi % config.ckpt_freq == 0:
         # torch.save(best_policy.model.state_dict(), os.path.join(dir, 'CMA_ES-'+str(epi)+'.pkl'))
         with open(os.path.join(dir, 'CMA_ES-'+str(epi)+'.pkl'), 'wb') as f:
-            pickle.dump(best_policy)
+            pickle.dump(best_policy, f)
 
 ray.shutdown()

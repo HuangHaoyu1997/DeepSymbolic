@@ -7,5 +7,5 @@ class config:
     ckpt_freq = 10
     num_parallel = 80
     # for CMA-ES
-    sigma_init = 0.1
-    pop_size = 500
+    sigma_init = 2.5
+    pop_size = 100
