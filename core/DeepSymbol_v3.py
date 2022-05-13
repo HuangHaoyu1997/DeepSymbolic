@@ -7,19 +7,22 @@
 import torch 
 from torch.distributions import Categorical
 from core.utils import tanh
-from core.models import Model
+from core.models import Model, Linear
 
 class DeepSymbol():
-    def __init__(self, inpt_dim, func_set) -> None:
+    def __init__(self, inpt_dim, out_dim, func_set) -> None:
         self.inpt_dim = inpt_dim
+        self.out_dim = out_dim
         self.func_set = func_set
         self.dict_dim = len(func_set)
         self.model = Model(inpt_dim = self.inpt_dim, dict_dim= self.dict_dim)
+        self.fc = Linear(inpt_dim, out_dim)
         # self.model.train()
     
     def select_action(self, idxs, state):
         # state = torch.tensor(state)
         action = self.execute_symbol_mat(state, idxs)
+        action = self.fc(action[2])
         action = tanh(action.item(), alpha=0.05)
         # print(action,'\n')
         return action

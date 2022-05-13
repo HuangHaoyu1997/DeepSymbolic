@@ -56,6 +56,7 @@ class Model(nn.Module):
         self.load_state_dict(state_dict)
 
 class Linear:
+    '''Linear layer implementation using numpy'''
     def __init__(self, in_dim, out_dim) -> None:
         
         self.weight = np.zeros((in_dim, out_dim), dtype=np.float32)

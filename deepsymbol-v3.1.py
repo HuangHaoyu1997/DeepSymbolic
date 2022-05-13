@@ -3,7 +3,6 @@ using CMA-ES to optimize symbol matrix
 
 '''
 import torch
-from torch.distributions import Categorical
 import numpy as np
 from core.function import func_set
 import argparse, math, os, sys, gym, cma, ray, time
