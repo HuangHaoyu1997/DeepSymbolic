@@ -9,7 +9,7 @@ from core.function import func_set
 import argparse, math, os, sys, gym, cma, ray, time
 from copy import deepcopy
 
-from utils import compute_centered_ranks, compute_weight_decay
+from core.utils import compute_centered_ranks, compute_weight_decay
 from configuration import config
 from env.CartPoleContinuous import CartPoleContinuousEnv
 from core.DeepSymbol_v3 import DeepSymbol
@@ -20,6 +20,8 @@ from core.DeepSymbol_v3 import DeepSymbol
 env_name = 'LunarLander-v2'
 env = gym.make(env_name)
 inpt_dim = env.observation_space.shape[0]
+out_dim = env.action_space.n
+
 env.seed(config.seed)
 torch.manual_seed(config.seed)
 np.random.seed(config.seed)

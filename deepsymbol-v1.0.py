@@ -5,10 +5,9 @@ import torch.nn.utils as utils
 from torch.distributions import Categorical, Beta
 import torch.autograd.variable as Variable
 import numpy as np
-from function import Function
+from core.function import Function
 import argparse, math, os, sys, gym, torch
-from function import *
-from utils import tanh
+from core.utils import tanh
 from configuration import config
 from env.CartPoleContinuous import CartPoleContinuousEnv
 import torch.nn.functional as F

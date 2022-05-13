@@ -8,7 +8,7 @@ from core.function import func_set
 import argparse, math, os, sys, gym, cma, ray, time
 from copy import deepcopy
 
-from utils import compute_centered_ranks, compute_weight_decay
+from core.utils import compute_centered_ranks, compute_weight_decay
 from configuration import config
 from env.CartPoleContinuous import CartPoleContinuousEnv
 from core.DeepSymbol_v3 import DeepSymbol

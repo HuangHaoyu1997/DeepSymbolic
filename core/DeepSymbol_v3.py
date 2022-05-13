@@ -6,7 +6,7 @@
 
 import torch 
 from torch.distributions import Categorical
-from utils import tanh
+from core.utils import tanh
 from core.models import Model
 
 class DeepSymbol():
@@ -61,9 +61,16 @@ class DeepSymbol():
                     elif ii > 0:
                         if arity == 1: 
                             inpt = [tmp_result[ii-1,:,:].sum(1)[i]]
-                            print(tmp_result[ii-1,:,:].sum(1))
+                            
                         elif arity == 2: 
                             inpt = [tmp_result[ii-1,:,:].sum(1)[i], tmp_result[ii-1,:,:].sum(1)[j]]
                     # print(idx[i,j], self.func_set[idx[i,j]].name, inpt)
                     tmp_result[ii,i,j] = self.func_set[idx[i,j]](*inpt)
-        return tmp_result[-1,:,:].sum()
+                    # print(tmp_result[:,:,:].sum(1))
+        return tmp_result.sum(1)
+
+if __name__ == '__main__':
+    from core.function import func_set
+    ds = DeepSymbol(4, func_set)
+    idxs, _, _ = ds.sym_mat()
+    print(ds.execute_symbol_mat([1., 2., 3., 4.], idxs))

@@ -6,7 +6,7 @@ from torch.distributions import Categorical, Beta
 import numpy as np
 from core.function import func_set
 
-from utils import tanh
+from core.utils import tanh
 from core.models import Model
 from configuration import config
 from env.CartPoleContinuous import CartPoleContinuousEnv

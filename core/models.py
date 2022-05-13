@@ -55,6 +55,23 @@ class Model(nn.Module):
                 state_dict[key] = all_params[(i-1)*len(params):i*len(params)]
         self.load_state_dict(state_dict)
 
+class Linear:
+    def __init__(self, in_dim, out_dim) -> None:
+        self.weight = np.zeros((in_dim, out_dim), dtype=np.float32)
+        self.bias = np.zeros((out_dim), dtype=np.float32)
+        
+    def relu(self, x):
+        return np.max(x, 0)
+
+    def __call__(self, x):
+        Y = np.matmul(x, self.weight) + self.bias
+        return self.relu(Y)
+    
+    def get_params(self,):
+        return self.weight.size + self.bias.size
+
+    def set_params(self, param):
+
 if __name__ == '__main__':
     
     model = Model(2, 3)
