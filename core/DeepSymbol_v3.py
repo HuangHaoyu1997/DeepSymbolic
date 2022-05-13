@@ -29,8 +29,8 @@ class DeepSymbol():
         mats = self.model()
         dist = [Categorical(mat) for mat in mats]
         idxs = [p.sample() for p in dist]
-        log_prob = torch.sum([p.log_prob(idx).sum() for p, idx in zip(dist, idxs)])
-        entropies = torch.sum([p.entropy().log().sum() for p in dist])
+        log_prob = torch.sum(torch.tensor([p.log_prob(idx).sum() for p, idx in zip(dist, idxs)]))
+        entropies = torch.sum(torch.tensor([p.entropy().log().sum() for p in dist]))
         
         # mat1, mat2, mat3 = self.model()
         # p1 = Categorical(mat1)
@@ -48,21 +48,22 @@ class DeepSymbol():
     
     def execute_symbol_mat(self, state, idxs):
         '''symbolic calculation using state vector'''
-        tmp = torch.zeros((len(idxs), self.inpt_dim, self.inpt_dim), dtype=torch.float32)
+        tmp_result = torch.zeros((len(idxs), self.inpt_dim, self.inpt_dim), dtype=torch.float32)
         for ii, idx in enumerate(idxs):
             for i in range(self.inpt_dim):
                 for j in range(self.inpt_dim):
                     arity = self.func_set[idx[i,j]].arity
-                    # 第一个symbol matrix
+                    # 第1个symbol matrix
                     if ii == 0:
                         if arity == 1: inpt = torch.tensor([state[i]])
                         elif arity == 2: inpt = torch.tensor([state[i], state[j]])
-                    # 其后symbol matrix
+                    # 其后的symbol matrix
                     elif ii > 0:
                         if arity == 1: 
-                            inpt = [tmp[ii-1,:,:].sum(1)[i]]
+                            inpt = [tmp_result[ii-1,:,:].sum(1)[i]]
+                            print(tmp_result[ii-1,:,:].sum(1))
                         elif arity == 2: 
-                            inpt = [tmp[ii-1,:,:].sum(1)[i], tmp[ii-1,:,:].sum(1)[j]]
+                            inpt = [tmp_result[ii-1,:,:].sum(1)[i], tmp_result[ii-1,:,:].sum(1)[j]]
                     # print(idx[i,j], self.func_set[idx[i,j]].name, inpt)
-                    tmp[ii,i,j] = self.func_set[idx[i,j]](*inpt)
-        return tmp[-1,:,:].sum()
+                    tmp_result[ii,i,j] = self.func_set[idx[i,j]](*inpt)
+        return tmp_result[-1,:,:].sum()
