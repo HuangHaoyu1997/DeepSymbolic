@@ -21,11 +21,17 @@ def torchConst(x):
     return torch.pow(x, 0)
 def torchNone(x):
     return torch.tensor(0.)
+def torchProDiv(x, y):
+    if torch.abs(y) <= 1e-3:
+        return torch.div(x, y+1e-3)
+    else:
+        return torch.div(x, y)
 func_set = [
     Function(torch.add, 2, 'torchAdd'),
     Function(torch.sub, 2, 'torchSub'),
     Function(torch.mul, 2, 'torchMul'),
-    Function(torch.div, 2, 'torchDiv'),
+    Function(torchProDiv, 2, 'torchDiv'),
+    # Function(torch.div, 2, 'torchDiv'),
     # Function(torch.max, 2, 'torchMax'),
     # Function(torch.min, 2, 'torchMin'),
 
