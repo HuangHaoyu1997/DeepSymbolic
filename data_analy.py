@@ -21,12 +21,16 @@ for i in range(8):
         t += symbol[mat1_idx[i,j].item()]
         t += '\t'
     print(t)
-idxs, _, _ = best_solution.sym_mat()
+for _ in range(10):
+    idxs, _, _ = best_solution.sym_mat()
+    zero_number = (idxs[0]==7).sum()+(idxs[1]==7).sum()+(idxs[2]==7).sum()
+    print(zero_number.item())
+
 import gym
 env = gym.make('LunarLander-v2')
-
 rrr = []
 for i in range(100):
+    idxs, _, _ = best_solution.sym_mat()
     s = env.reset()
     rr = 0
     done = False

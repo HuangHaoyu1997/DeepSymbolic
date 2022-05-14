@@ -37,18 +37,23 @@ def rollout(env, ds, solution, num_episode=config.rollout_episode):
     policy.model.set_params(torch.tensor(solution[:policy.model.num_params]))
     policy.fc.set_params(solution[policy.model.num_params:])
     
+    # sym_mat应该放在episode循环内还是循环外?
+    idxs, log_prob, entropy = policy.sym_mat()
+
     reward = 0
     for epi in range(num_episode):
         done = False
         state = env.reset()
-        idx, log_prob, entropy = policy.sym_mat()
+        
         for t in range(config.num_steps):
-            action = policy.select_action(idx, state)
+            action = policy.select_action(idxs, state)
             state, r, done, _ = env.step(action)
             # state, r, done, _ = env.step(np.array([action]))
             reward += r
             if done: break
-    return reward / num_episode
+    zero_number = (idxs[0]==7).sum()+(idxs[1]==7).sum()+(idxs[2]==7).sum()
+    zero_number = zero_number.item()
+    return reward / num_episode + config.zero_weight * zero_number
 
 ds = DeepSymbol(inpt_dim, out_dim, func_set)
 es = cma.CMAEvolutionStrategy([0.] * (ds.model.num_params + ds.fc.num_params),

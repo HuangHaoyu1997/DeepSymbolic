@@ -6,6 +6,7 @@ class config:
     num_episodes = 100000
     ckpt_freq = 10
     num_parallel = 80
+    zero_weight = 1.0 # 鼓励采用尽可能多的None操作
     # for CMA-ES
     sigma_init = 2.5
     pop_size = 100
