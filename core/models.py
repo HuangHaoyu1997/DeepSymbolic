@@ -65,8 +65,10 @@ class Linear:
     def relu(self, x):
         return np.maximum(x, 0)
     
-    def softmax(self, x):
-        return np.exp(x)/(np.exp(x).sum())
+    def softmax(self, x, alpha=0.1, with_clip=100):
+        x = np.clip(x, -with_clip, with_clip)
+        return np.exp(alpha*x)/(np.exp(alpha*x)).sum()
+
 
     def __call__(self, x):
         Y = np.matmul(x, self.weight) + self.bias
