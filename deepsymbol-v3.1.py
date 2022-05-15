@@ -40,22 +40,24 @@ def rollout(env, ds, solution, num_episode=config.rollout_episode, test=False):
     # sym_mat应该放在episode循环内还是循环外?
     idxs, _, _ = policy.sym_mat()
 
-    reward = 0
+    reward = []
     for _ in range(num_episode):
         done = False
         state = env.reset()
+        rr = 0
         for _ in range(config.num_steps):
             action = policy.select_action(idxs, state)
             state, r, done, _ = env.step(action)
             # state, r, done, _ = env.step(np.array([action]))
-            reward += r
+            rr += r
             if done: break
+        reward.append(rr)
     zero_number = (idxs[0]==7).sum()+(idxs[1]==7).sum()+(idxs[2]==7).sum()
     zero_number = zero_number.item()
     if not test:
-        return reward / num_episode + config.zero_weight * zero_number
+        return np.mean(reward) - np.std(reward) + config.zero_weight * zero_number
     else:
-        return reward / num_episode
+        return np.mean(reward) - np.std(reward)
 
 ds = DeepSymbol(inpt_dim, out_dim, func_set)
 es = cma.CMAEvolutionStrategy([0.] * (ds.model.num_params + ds.fc.num_params),
