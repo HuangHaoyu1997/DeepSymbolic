@@ -61,7 +61,7 @@ def rollout(env, ds, solution, num_episode=config.rollout_episode, test=False):
             rewards.append(rr)
     
     if not test:
-        return np.mean(rewards) - np.std(rewards) + config.zero_weight * np.mean(num_0)
+        return np.mean(rewards) - np.std(rewards) + config.zero_coef * np.mean(num_0)
     else: # for test
         return np.mean(rewards) # - np.std(rewards)
 
