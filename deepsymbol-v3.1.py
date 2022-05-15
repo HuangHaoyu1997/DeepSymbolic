@@ -21,9 +21,9 @@ env = gym.make(env_name)
 inpt_dim = env.observation_space.shape[0]
 out_dim = env.action_space.n
 
-env.seed(config.seed)
-torch.manual_seed(config.seed)
-np.random.seed(config.seed)
+# env.seed(config.seed)
+# torch.manual_seed(config.seed)
+# np.random.seed(config.seed)
 ray.init(num_cpus = config.num_parallel)
 
 dir = './results/ckpt_deepsymbol-v3_' + env_name
