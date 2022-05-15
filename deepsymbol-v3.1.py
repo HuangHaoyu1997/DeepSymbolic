@@ -32,20 +32,19 @@ if not os.path.exists(dir):
     os.mkdir(dir)
 
 @ray.remote
-def rollout(env, ds, solution, num_episode=config.rollout_episode):
+def rollout(env, ds, solution, num_episode=config.rollout_episode, test=False):
     policy = deepcopy(ds)
     policy.model.set_params(torch.tensor(solution[:policy.model.num_params]))
     policy.fc.set_params(solution[policy.model.num_params:])
     
     # sym_mat应该放在episode循环内还是循环外?
-    idxs, log_prob, entropy = policy.sym_mat()
+    idxs, _, _ = policy.sym_mat()
 
     reward = 0
-    for epi in range(num_episode):
+    for _ in range(num_episode):
         done = False
         state = env.reset()
-        
-        for t in range(config.num_steps):
+        for _ in range(config.num_steps):
             action = policy.select_action(idxs, state)
             state, r, done, _ = env.step(action)
             # state, r, done, _ = env.step(np.array([action]))
@@ -53,7 +52,10 @@ def rollout(env, ds, solution, num_episode=config.rollout_episode):
             if done: break
     zero_number = (idxs[0]==7).sum()+(idxs[1]==7).sum()+(idxs[2]==7).sum()
     zero_number = zero_number.item()
-    return reward / num_episode + config.zero_weight * zero_number
+    if not test:
+        return reward / num_episode + config.zero_weight * zero_number
+    else:
+        return reward / num_episode
 
 ds = DeepSymbol(inpt_dim, out_dim, func_set)
 es = cma.CMAEvolutionStrategy([0.] * (ds.model.num_params + ds.fc.num_params),
@@ -65,8 +67,7 @@ es = cma.CMAEvolutionStrategy([0.] * (ds.model.num_params + ds.fc.num_params),
 for epi in range(config.num_episodes):
     tick = time.time()
     solutions = np.array(es.ask(), dtype=np.float32)
-    results = []
-    rewards = [rollout.remote(env, ds, solution) for solution in solutions]
+    rewards = [rollout.remote(env, ds, solution, config.rollout_episode, False) for solution in solutions]
     rewards = ray.get(rewards)
     rewards = np.array(rewards)
 
@@ -74,12 +75,12 @@ for epi in range(config.num_episodes):
     best_policy = deepcopy(ds)
     best_policy.model.set_params(solutions[best_policy_idx][:ds.model.num_params])
     best_policy.fc.set_params(solutions[best_policy_idx][ds.model.num_params:])
-    best_reward = rollout.remote(env, ds, solutions[best_policy_idx], 20)
+    best_reward = rollout.remote(env, ds, solutions[best_policy_idx], 20, True)
     best_reward = ray.get(best_reward)
 
     ranks = compute_centered_ranks(rewards)
     es.tell(solutions, -ranks)
-    print('episode:', epi, 'mean:', np.round(rewards.mean(), 2), 'max:', np.max(rewards), 'best:', best_reward, 'time:', time.time()-tick)
+    print('episode:', epi, 'mean:', np.round(rewards.mean(), 2), np.round(rewards.std(), 2), 'max:', np.max(rewards), 'best:', best_reward, 'time:', time.time()-tick)
     # print(rewards, ranks)
     if epi % config.ckpt_freq == 0:
         # torch.save(best_policy.model.state_dict(), os.path.join(dir, 'CMA_ES-'+str(epi)+'.pkl'))
