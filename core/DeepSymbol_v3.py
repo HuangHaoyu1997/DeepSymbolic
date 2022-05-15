@@ -29,14 +29,21 @@ class DeepSymbol():
         # print(action,'\n')
         return action
 
-    def sym_mat(self,):
+    def sym_mat(self, test=False):
         '''get symbol matrix for policy'''
         mats = self.model()
-        dist = [Categorical(mat) for mat in mats]
-        idxs = [p.sample() for p in dist]
-        log_prob = torch.sum(torch.tensor([p.log_prob(idx).sum() for p, idx in zip(dist, idxs)]))
-        entropies = torch.sum(torch.tensor([p.entropy().log().sum() for p in dist]))
-        
+        if not test:
+            dist = [Categorical(mat) for mat in mats]
+            idxs = [p.sample() for p in dist]
+            log_prob = torch.sum(torch.tensor([p.log_prob(idx).sum() for p, idx in zip(dist, idxs)]))
+            entropies = torch.sum(torch.tensor([p.entropy().log().sum() for p in dist]))
+        elif test:
+            mat1, mat2, mat3 = self.model()
+            _, mat1_idx = torch.max(mat1, dim=-1)
+            _, mat2_idx = torch.max(mat2, dim=-1)
+            _, mat3_idx = torch.max(mat3, dim=-1)
+            idxs = [mat1_idx, mat2_idx, mat3_idx]
+            log_prob, entropies = None, None
         # mat1, mat2, mat3 = self.model()
         # p1 = Categorical(mat1)
         # p2 = Categorical(mat2)

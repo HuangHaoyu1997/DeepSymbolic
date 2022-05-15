@@ -41,7 +41,7 @@ def rollout(env, ds, solution, num_episode=config.rollout_episode, test=False):
     rewards, num_0 = [], []
     # sample N times from matrix distribution
     for _ in range(num_episode):
-        idxs, _, _ = policy.sym_mat()
+        idxs, _, _ = policy.sym_mat(test)
         zero_number = (idxs[0]==7).sum()+(idxs[1]==7).sum()+(idxs[2]==7).sum()
         zero_number = zero_number.item()
         num_0.append(zero_number)
