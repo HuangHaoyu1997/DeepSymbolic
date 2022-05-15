@@ -37,27 +37,33 @@ def rollout(env, ds, solution, num_episode=config.rollout_episode, test=False):
     policy.model.set_params(torch.tensor(solution[:policy.model.num_params]))
     policy.fc.set_params(solution[policy.model.num_params:])
     
-    # sym_mat应该放在episode循环内还是循环外?
-    idxs, _, _ = policy.sym_mat()
 
-    reward = []
+    rewards, num_0 = [], []
+    # sample N times from matrix distribution
     for _ in range(num_episode):
-        done = False
-        state = env.reset()
-        rr = 0
-        for _ in range(config.num_steps):
-            action = policy.select_action(idxs, state)
-            state, r, done, _ = env.step(action)
-            # state, r, done, _ = env.step(np.array([action]))
-            rr += r
-            if done: break
-        reward.append(rr)
-    zero_number = (idxs[0]==7).sum()+(idxs[1]==7).sum()+(idxs[2]==7).sum()
-    zero_number = zero_number.item()
+        idxs, _, _ = policy.sym_mat()
+        zero_number = (idxs[0]==7).sum()+(idxs[1]==7).sum()+(idxs[2]==7).sum()
+        zero_number = zero_number.item()
+        num_0.append(zero_number)
+        # rollout N times for each sampling matrix
+        for _ in range(num_episode):
+            done = False
+            # set seed for each episode for generality
+            env.seed(int(str(time.time()).split('.')[1]))
+            state = env.reset()
+            rr = 0
+            for _ in range(config.num_steps):
+                action = policy.select_action(idxs, state)
+                state, r, done, _ = env.step(action)
+                # state, r, done, _ = env.step(np.array([action]))
+                rr += r
+                if done: break
+            rewards.append(rr)
+    
     if not test:
-        return np.mean(reward) - np.std(reward) + config.zero_weight * zero_number
-    else:
-        return np.mean(reward) - np.std(reward)
+        return np.mean(rewards) - np.std(rewards) + config.zero_weight * np.mean(num_0)
+    else: # for test
+        return np.mean(rewards) # - np.std(rewards)
 
 ds = DeepSymbol(inpt_dim, out_dim, func_set)
 es = cma.CMAEvolutionStrategy([0.] * (ds.model.num_params + ds.fc.num_params),
@@ -77,7 +83,7 @@ for epi in range(config.num_episodes):
     best_policy = deepcopy(ds)
     best_policy.model.set_params(solutions[best_policy_idx][:ds.model.num_params])
     best_policy.fc.set_params(solutions[best_policy_idx][ds.model.num_params:])
-    best_reward = rollout.remote(env, ds, solutions[best_policy_idx], 20, True)
+    best_reward = rollout.remote(env, ds, solutions[best_policy_idx], 10, True)
     best_reward = ray.get(best_reward)
 
     ranks = compute_centered_ranks(rewards)
