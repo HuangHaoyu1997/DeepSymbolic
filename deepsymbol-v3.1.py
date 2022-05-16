@@ -13,10 +13,10 @@ from configuration import config
 from env.CartPoleContinuous import CartPoleContinuousEnv
 from core.DeepSymbol_v3 import DeepSymbol
 
-# env_name = 'CartPoleContinuous'
+env_name = 'CartPole-v1' # 'CartPoleContinuous'
 # env = CartPoleContinuousEnv()
 
-env_name = 'LunarLander-v2'
+# env_name = 'LunarLander-v2'
 env = gym.make(env_name)
 def wrapper(env, test):
     env = gym.wrappers.RecordEpisodeStatistics(env)
@@ -36,7 +36,7 @@ out_dim = env.action_space.n
 # np.random.seed(config.seed)
 ray.init(num_cpus = config.num_parallel)
 
-dir = './results/ckpt_deepsymbol-v3_' + env_name
+dir = './results/ckpt_deepsymbol-v31_' + env_name
 
 if not os.path.exists(dir):    
     os.mkdir(dir)
