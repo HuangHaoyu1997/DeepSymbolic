@@ -2,7 +2,7 @@ import pickle, torch
 import numpy as np
 
 # ckpt_deepsymbol-v3_LunarLander-v2
-with open('./results/3090/CMA_ES-10.pkl', 'rb') as f:
+with open('./results/3090/CMA_ES-100.pkl', 'rb') as f:
     best_solution = pickle.load(f)
 # print(best_solution.fc.weight, best_solution.fc.bias)
 # print(len(best_solution.model.get_params())/3)
@@ -21,29 +21,36 @@ for matrix in mat:
         t = ''
         for j in range(8):
             # t.append(symbol[mat1_idx[i,j].item()])
-            t += symbol[mat1_idx[i,j].item()]
+            t += symbol[matrix[i,j].item()]
             t += '\t'
         print(t)
     print('\n')
+# result = best_solution.execute_symbol_mat([1,2,3,4,5,6,7,8], [mat1_idx])
+# print(result.sum(1))
+
 for _ in range(10):
     idxs, _, _ = best_solution.sym_mat(test=True)
     zero_number = (idxs[0]==7).sum()+(idxs[1]==7).sum()+(idxs[2]==7).sum()
     print(zero_number.item())
 
+
+    
+'''
+
+'''
 import gym
 def wrapper(env):
     env = gym.wrappers.RecordEpisodeStatistics(env)
     # env = gym.wrappers.ClipAction(env)
     env = gym.wrappers.NormalizeObservation(env)
     env = gym.wrappers.TransformObservation(env, lambda obs: np.clip(obs, -10, 10))
-    env = gym.wrappers.NormalizeReward(env)
-    env = gym.wrappers.TransformReward(env, lambda reward: np.clip(reward, -10, 10))
+    # env = gym.wrappers.NormalizeReward(env)
+    # env = gym.wrappers.TransformReward(env, lambda reward: np.clip(reward, -10, 10))
     return env
 env = wrapper(gym.make('LunarLander-v2'))
 rrr = []
 idxs, _, _ = best_solution.sym_mat(True)
 for i in range(20):
-    
     s = env.reset()
     rr = 0
     done = False
