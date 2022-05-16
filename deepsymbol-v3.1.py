@@ -18,12 +18,14 @@ from core.DeepSymbol_v3 import DeepSymbol
 
 env_name = 'LunarLander-v2'
 env = gym.make(env_name)
-env = gym.wrappers.RecordEpisodeStatistics(env)
-env = gym.wrappers.ClipAction(env)
-env = gym.wrappers.NormalizeObservation(env)
-env = gym.wrappers.TransformObservation(env, lambda obs: np.clip(obs, -10, 10))
-env = gym.wrappers.NormalizeReward(env)
-env = gym.wrappers.TransformReward(env, lambda reward: np.clip(reward, -10, 10))
+def wrapper(env):
+    env = gym.wrappers.RecordEpisodeStatistics(env)
+    env = gym.wrappers.ClipAction(env)
+    env = gym.wrappers.NormalizeObservation(env)
+    env = gym.wrappers.TransformObservation(env, lambda obs: np.clip(obs, -10, 10))
+    env = gym.wrappers.NormalizeReward(env)
+    env = gym.wrappers.TransformReward(env, lambda reward: np.clip(reward, -10, 10))
+    return env
 
 inpt_dim = env.observation_space.shape[0]
 out_dim = env.action_space.n
@@ -55,6 +57,7 @@ def rollout(env, ds, solution, num_episode=config.rollout_episode, test=False):
         # rollout N times for each sampling matrix
         for _ in range(num_episode):
             done = False
+            env = wrapper(env)
             # set seed for each episode for generality
             seed = int(str(time.time()).split('.')[1])
             env.seed(seed)
