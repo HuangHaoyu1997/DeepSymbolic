@@ -20,7 +20,7 @@ env_name = 'LunarLander-v2'
 env = gym.make(env_name)
 def wrapper(env):
     env = gym.wrappers.RecordEpisodeStatistics(env)
-    env = gym.wrappers.ClipAction(env)
+    # env = gym.wrappers.ClipAction(env)
     env = gym.wrappers.NormalizeObservation(env)
     env = gym.wrappers.TransformObservation(env, lambda obs: np.clip(obs, -10, 10))
     env = gym.wrappers.NormalizeReward(env)
@@ -97,7 +97,7 @@ for epi in range(config.num_episodes):
     best_policy = deepcopy(ds)
     best_policy.model.set_params(solutions[best_policy_idx][:ds.model.num_params])
     best_policy.fc.set_params(solutions[best_policy_idx][ds.model.num_params:])
-    best_reward = rollout.remote(env, ds, solutions[best_policy_idx], 10, True)
+    best_reward = rollout.remote(env, ds, solutions[best_policy_idx], config.rollout_episode, True)
     best_reward = ray.get(best_reward)
 
     ranks = compute_centered_ranks(rewards)
