@@ -1,6 +1,8 @@
 import pickle, torch
 import numpy as np
 from env.CartPoleContinuous import CartPoleContinuousEnv
+import sys
+sys.path.append(r'C:/Users/44670/Documents/GitHub/DeepSymbolic')
 # ckpt_deepsymbol-v3_LunarLander-v2
 with open('./results/TitanXP/CMA_ES-666.pkl', 'rb') as f:
     best_solution = pickle.load(f)
@@ -27,13 +29,15 @@ for matrix in mat:
     print('\n')
 # result = best_solution.execute_symbol_mat([1,2,3,4,5,6,7,8], [mat1_idx])
 # print(result.sum(1))
-
+'''
 for _ in range(10):
     idxs, _, _ = best_solution.sym_mat(test=True)
     zero_number = (idxs[0]==7).sum()+(idxs[1]==7).sum()+(idxs[2]==7).sum()
     print(zero_number.item())
 
-    
+'''
+
+
 from core.utils import softmax
 def policy_SM(s):
     A = s[3] / s[2] + (s[2] + s[2] * np.sin(s[2])) / s[3]
@@ -42,7 +46,7 @@ def policy_SM(s):
     p = softmax([a1,a2])
     action = np.random.choice(2, p=p)
     
-    return action
+    return [a1, a2], p, action
 
     
 '''
@@ -57,16 +61,21 @@ def wrapper(env):
     # env = gym.wrappers.NormalizeReward(env)
     # env = gym.wrappers.TransformReward(env, lambda reward: np.clip(reward, -10, 10))
     return env
+
 env = wrapper(gym.make('LunarLander-v2'))
 env = gym.make('CartPole-v1')
 rrr = []
 idxs, _, _ = best_solution.sym_mat(True)
-for i in range(20):
+for i in range(2):
     s = env.reset()
     rr = 0
     done = False
     while not done:
+        print('xxx')
+        print('state:',s)
         action = best_solution.select_action(idxs, s)
+        print('SM:', policy_SM(s))
+        print('yyy')
         s,r,done,_ = env.step(action)
         rr += r
     rrr.append(rr)

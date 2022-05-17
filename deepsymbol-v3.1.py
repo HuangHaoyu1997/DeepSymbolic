@@ -42,7 +42,7 @@ if not os.path.exists(dir):
     os.mkdir(dir)
 
 @ray.remote
-def rollout(env, ds, solution, num_episode=config.rollout_episode, test=False):
+def rollout(env, ds:DeepSymbol, solution, num_episode=config.rollout_episode, test=False):
     policy = deepcopy(ds)
     policy.model.set_params(torch.tensor(solution[:policy.model.num_params]))
     policy.fc.set_params(solution[policy.model.num_params:])
@@ -78,7 +78,7 @@ def rollout(env, ds, solution, num_episode=config.rollout_episode, test=False):
     if not test:
         return np.mean(rewards) - config.std_coef * np.std(rewards) + config.zero_coef * np.mean(num_0)
     else: # for test
-        return np.mean(rewards) # - np.std(rewards)
+        return np.mean(rewards), np.mean(num_0) # - np.std(rewards)
 
 ds = DeepSymbol(inpt_dim, out_dim, func_set)
 es = cma.CMAEvolutionStrategy([0.] * (ds.model.num_params + ds.fc.num_params),
@@ -91,25 +91,18 @@ for epi in range(config.num_episodes):
     tick = time.time()
     solutions = np.array(es.ask(), dtype=np.float32)
     rewards = [rollout.remote(env, ds, solution, config.rollout_episode, False) for solution in solutions]
-    rewards = ray.get(rewards)
-    rewards = np.array(rewards)
-
-    best_policy_idx = np.argmax(rewards)
-    best_policy = deepcopy(ds)
-    best_policy.model.set_params(solutions[best_policy_idx][:ds.model.num_params])
-    best_policy.fc.set_params(solutions[best_policy_idx][ds.model.num_params:])
-    best_reward = rollout.remote(env, ds, solutions[best_policy_idx], config.rollout_episode, True)
-    best_reward = ray.get(best_reward)
-    idxs, _, _ = best_policy.sym_mat(test=True)
-    zero_number = (idxs[0]==7).sum()+(idxs[1]==7).sum()+(idxs[2]==7).sum()
-    zero_number = zero_number.item()
+    rewards = np.array(ray.get(rewards))
     ranks = compute_centered_ranks(rewards)
-    es.tell(solutions, -ranks)
-    print('episode:', epi, 'mean:', np.round(rewards.mean(), 2), np.round(rewards.std(), 2), 'max:', np.max(rewards), 'best:', best_reward, 'time:', time.time()-tick, zero_number)
+    # es.tell(solutions, -ranks)
+    es.tell(solutions, -rewards)
+    
+    best_reward = rollout.remote(env, ds, es.result.xfavorite, config.rollout_episode, True)
+    best_reward = ray.get(best_reward)
+    
+    print('episode:', epi, 'mean:', np.round(rewards.mean(), 2), np.round(rewards.std(), 2), 'max:', np.max(rewards), 'best:', best_reward, 'time:', time.time()-tick)
     # print(rewards, ranks)
     if epi % config.ckpt_freq == 0:
-        # torch.save(best_policy.model.state_dict(), os.path.join(dir, 'CMA_ES-'+str(epi)+'.pkl'))
         with open(os.path.join(dir, 'CMA_ES-'+str(epi)+'.pkl'), 'wb') as f:
-            pickle.dump(best_policy, f)
+            pickle.dump([es.result.xbest, es.result.xfavorite], f)
 
 ray.shutdown()

@@ -19,10 +19,10 @@ def sigmoid(x, alpha=1.0, with_clip=100):
     out = 1 / (1 + np.exp(-alpha*x))
     return out
 
-def compute_centered_ranks(x):
+def compute_centered_ranks(x, clip_margin=0.5):
     ranks = np.empty(x.shape[0], dtype=np.float32)
     # x.argsort()从小到大排列,将reward归到[-0.5,0.5]区间
-    ranks[x.argsort()] = np.linspace(-0.5, 0.5, x.shape[0], dtype=np.float32)
+    ranks[x.argsort()] = np.linspace(-clip_margin, clip_margin, x.shape[0], dtype=np.float32)
     return ranks
 
 def compute_weight_decay(weight_decay, model_param_list):   

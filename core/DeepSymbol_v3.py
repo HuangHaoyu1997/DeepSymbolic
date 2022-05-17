@@ -7,7 +7,9 @@
 import torch
 import numpy as np
 from torch.distributions import Categorical
-from core.utils import tanh
+# from .utils import tanh
+# import sys
+# sys.path.append(r'C:/Users/44670/Documents/GitHub/DeepSymbolic')
 from core.models import Model, Linear
 
 class DeepSymbol():
@@ -22,7 +24,7 @@ class DeepSymbol():
     
     def select_action(self, idxs, state):
         # state = torch.tensor(state)
-        action1 = self.execute_symbol_mat(state, idxs)
+        _, action1 = self.execute_symbol_mat(state, idxs)
         action2 = self.fc(action1[2].numpy())
         action3 = np.random.choice(np.arange(self.out_dim), p=action2)
         print(action1, action2, action3, '\n')
@@ -61,26 +63,24 @@ class DeepSymbol():
     
     def execute_symbol_mat(self, state, idxs):
         '''symbolic calculation using state vector'''
-        tmp_result = torch.zeros((len(idxs), self.inpt_dim, self.inpt_dim), dtype=torch.float32)
+        state = torch.tensor(state)
+        internal_output = torch.zeros((len(idxs), 
+                                  self.inpt_dim, 
+                                  self.inpt_dim), dtype=torch.float32)
         for ii, idx in enumerate(idxs):
+            internal_input = state if ii==0 else internal_output[ii-1].sum(0)
+            print(internal_input)
+
             for i in range(self.inpt_dim):
                 for j in range(self.inpt_dim):
                     arity = self.func_set[idx[i,j]].arity
-                    # 第1个symbol matrix
-                    if ii == 0:
-                        if arity == 1: inpt = torch.tensor([state[i]])
-                        elif arity == 2: inpt = torch.tensor([state[i], state[j]])
-                    # 其后的symbol matrix
-                    elif ii > 0:
-                        if arity == 1: 
-                            inpt = [tmp_result[ii-1,:,:].sum(1)[i]]
-                            
-                        elif arity == 2: 
-                            inpt = [tmp_result[ii-1,:,:].sum(1)[i], tmp_result[ii-1,:,:].sum(1)[j]]
-                    # print(idx[i,j], self.func_set[idx[i,j]].name, inpt)
-                    tmp_result[ii,i,j] = self.func_set[idx[i,j]](*inpt)
-                    # print(tmp_result[:,:,:].sum(1))
-        return tmp_result.sum(1)
+                    
+                    if arity == 1: inpt = [internal_input[i]]
+                    elif arity == 2: inpt = [internal_input[i], internal_input[j]]
+                    
+                    internal_output[ii,i,j] = self.func_set[idx[i,j]](*inpt)
+            
+        return internal_output.sum(1)
 
 if __name__ == '__main__':
     from core.function import func_set
@@ -90,7 +90,7 @@ if __name__ == '__main__':
 
     from core.DeepSymbol_v3 import DeepSymbol
     from core.function import func_set
-    ds = DeepSymbol(4,4,func_set)
+    ds = DeepSymbol(4, 4, func_set)
     idxs, _, _ = ds.sym_mat()
     print(ds.select_action(idxs, [1.,2.,3.,4.]))
     print(ds.fc.num_params)
