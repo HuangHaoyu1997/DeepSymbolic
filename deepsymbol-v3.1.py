@@ -51,16 +51,16 @@ def rollout(env, ds, solution, num_episode=config.rollout_episode, test=False):
     rewards, num_0 = [], []
     # sample N times from matrix distribution
     for _ in range(num_episode):
-        idxs, _, _ = policy.sym_mat(test)
+        idxs, _, _ = policy.sym_mat(test=False)
         zero_number = (idxs[0]==7).sum()+(idxs[1]==7).sum()+(idxs[2]==7).sum()
         zero_number = zero_number.item()
         num_0.append(zero_number)
         # rollout N times for each sampling matrix
         for _ in range(num_episode):
             done = False
-            env = wrapper(env, test)
+            # env = wrapper(env, test)
             # set seed for each episode for generality
-            seed = int(str(time.time()).split('.')[1])
+            seed = int(str(time.time()).split('.')[1]) if not test else config.seed
             env.seed(seed)
             env.action_space.seed(seed)
             env.observation_space.seed(seed)
@@ -76,7 +76,7 @@ def rollout(env, ds, solution, num_episode=config.rollout_episode, test=False):
             rewards.append(rr)
     
     if not test:
-        return np.mean(rewards) - np.std(rewards) + config.zero_coef * np.mean(num_0)
+        return np.mean(rewards) - config.std_coef * np.std(rewards) + config.zero_coef * np.mean(num_0)
     else: # for test
         return np.mean(rewards) # - np.std(rewards)
 
@@ -100,10 +100,12 @@ for epi in range(config.num_episodes):
     best_policy.fc.set_params(solutions[best_policy_idx][ds.model.num_params:])
     best_reward = rollout.remote(env, ds, solutions[best_policy_idx], config.rollout_episode, True)
     best_reward = ray.get(best_reward)
-
+    idxs, _, _ = best_policy.sym_mat(test=True)
+    zero_number = (idxs[0]==7).sum()+(idxs[1]==7).sum()+(idxs[2]==7).sum()
+    zero_number = zero_number.item()
     ranks = compute_centered_ranks(rewards)
     es.tell(solutions, -ranks)
-    print('episode:', epi, 'mean:', np.round(rewards.mean(), 2), np.round(rewards.std(), 2), 'max:', np.max(rewards), 'best:', best_reward, 'time:', time.time()-tick)
+    print('episode:', epi, 'mean:', np.round(rewards.mean(), 2), np.round(rewards.std(), 2), 'max:', np.max(rewards), 'best:', best_reward, 'time:', time.time()-tick, zero_number)
     # print(rewards, ranks)
     if epi % config.ckpt_freq == 0:
         # torch.save(best_policy.model.state_dict(), os.path.join(dir, 'CMA_ES-'+str(epi)+'.pkl'))
