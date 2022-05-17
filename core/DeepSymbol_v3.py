@@ -27,7 +27,7 @@ class DeepSymbol():
         _, action1 = self.execute_symbol_mat(state, idxs)
         action2 = self.fc(action1[2].numpy())
         action3 = np.random.choice(np.arange(self.out_dim), p=action2)
-        print(action1, action2, action3, '\n')
+        # print(action1, action2, action3, '\n')
         # action = tanh(action, alpha=0.05)
         # print(action,'\n')
         return action3
@@ -36,11 +36,13 @@ class DeepSymbol():
         '''get symbol matrix for policy'''
         mats = self.model()
         if not test:
+            # 依概率采样
             dist = [Categorical(mat) for mat in mats]
             idxs = [p.sample() for p in dist]
             log_prob = torch.sum(torch.tensor([p.log_prob(idx).sum() for p, idx in zip(dist, idxs)]))
             entropies = torch.sum(torch.tensor([p.entropy().log().sum() for p in dist]))
         elif test:
+            # 固定取最大概率的op
             mat1, mat2, mat3 = self.model()
             _, mat1_idx = torch.max(mat1, dim=-1)
             _, mat2_idx = torch.max(mat2, dim=-1)
