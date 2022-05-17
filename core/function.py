@@ -21,6 +21,10 @@ def torchConst(x):
     return torch.pow(x, 0)
 def torchNone(x):
     return torch.tensor(0.)
+def torch01(x):
+    return torch.tensor(0.1)
+def torch01(x):
+    return torch.tensor(0.1)
 def torchProDiv(x, y):
     if torch.abs(y) <= 1e-3:
         return torch.div(x, y+1e-3)

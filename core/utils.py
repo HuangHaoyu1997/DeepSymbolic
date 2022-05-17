@@ -1,8 +1,9 @@
 import numpy as np
 
 
-def softmax(x):
-    return np.exp(x)/(np.exp(x)).sum()
+def softmax(x, alpha=0.1, with_clip=100):
+    x = np.clip(x, -with_clip, with_clip)
+    return np.exp(alpha*x)/(np.exp(alpha*x)).sum()
 
 def tanh(x, alpha=1.0, with_clip=100):
     '''

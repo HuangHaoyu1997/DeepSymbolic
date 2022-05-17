@@ -22,12 +22,13 @@ class DeepSymbol():
     
     def select_action(self, idxs, state):
         # state = torch.tensor(state)
-        action = self.execute_symbol_mat(state, idxs)
-        action = self.fc(action[2].numpy())
-        action = np.random.choice(np.arange(self.out_dim), p=action)
+        action1 = self.execute_symbol_mat(state, idxs)
+        action2 = self.fc(action1[2].numpy())
+        action3 = np.random.choice(np.arange(self.out_dim), p=action2)
+        print(action1, action2, action3, '\n')
         # action = tanh(action, alpha=0.05)
         # print(action,'\n')
-        return action
+        return action3
 
     def sym_mat(self, test=False):
         '''get symbol matrix for policy'''
