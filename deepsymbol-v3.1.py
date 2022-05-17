@@ -60,7 +60,7 @@ def rollout(env, ds, solution, num_episode=config.rollout_episode, test=False):
             done = False
             # env = wrapper(env, test)
             # set seed for each episode for generality
-            seed = int(str(time.time()).split('.')[1]) if not test else config.seed
+            seed = int(str(time.time()).split('.')[1]) # if not test else config.seed
             env.seed(seed)
             env.action_space.seed(seed)
             env.observation_space.seed(seed)
