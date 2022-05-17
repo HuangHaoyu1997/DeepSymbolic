@@ -29,5 +29,27 @@ def compute_weight_decay(weight_decay, model_param_list):
     model_param_grid = np.array(model_param_list)
     return - weight_decay * np.mean(model_param_grid * model_param_grid, axis=1)
 
+def wrapper(env):
+    import gym
+    env = gym.wrappers.RecordEpisodeStatistics(env)
+    # env = gym.wrappers.ClipAction(env)
+    env = gym.wrappers.NormalizeObservation(env)
+    env = gym.wrappers.TransformObservation(env, lambda obs: np.clip(obs, -10, 10))
+    # env = gym.wrappers.NormalizeReward(env)
+    # env = gym.wrappers.TransformReward(env, lambda reward: np.clip(reward, -10, 10))
+    return env
+
+def print_matrix(mats, symbols, state_dim):
+    
+    for idx, matrix in enumerate(mats):
+        print('Matrix '+str(idx+1))
+        for i in range(state_dim):
+            t = ''
+            for j in range(state_dim):
+                # t.append(symbol[mat1_idx[i,j].item()])
+                t += symbols[matrix[i,j].item()]
+                t += '\t'
+            print(t)
+        print('\n')
 if __name__ == "__main__":
     pass
