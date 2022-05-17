@@ -45,7 +45,7 @@ class Model(nn.Module):
         给各fc层的bias写入参数
         各fc层的weight写入0
         '''
-        all_params = torch.FloatTensor(all_params)
+        all_params = torch.tensor(all_params)
         state_dict = dict()
         for key, params in self.state_dict().items():
             if key.split('.')[1]=='weight':

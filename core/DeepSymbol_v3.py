@@ -71,7 +71,7 @@ class DeepSymbol():
                                   self.inpt_dim), dtype=torch.float32)
         for ii, idx in enumerate(idxs):
             internal_input = state if ii==0 else internal_output[ii-1].sum(0)
-            print(internal_input)
+            # print(internal_output[ii-1], internal_input)
 
             for i in range(self.inpt_dim):
                 for j in range(self.inpt_dim):
@@ -82,7 +82,7 @@ class DeepSymbol():
                     
                     internal_output[ii,i,j] = self.func_set[idx[i,j]](*inpt)
             
-        return internal_output.sum(1)
+        return internal_output, internal_output.sum(1)
 
 if __name__ == '__main__':
     from core.function import func_set
