@@ -47,7 +47,6 @@ def rollout(env, ds:DeepSymbol, solution, num_episode=config.rollout_episode, te
     policy.model.set_params(torch.tensor(solution[:policy.model.num_params]))
     policy.fc.set_params(solution[policy.model.num_params:])
     
-
     rewards, num_0 = [], []
     # sample N times from matrix distribution
     for _ in range(num_episode):

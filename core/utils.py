@@ -51,5 +51,24 @@ def print_matrix(mats, symbols, state_dim):
                 t += '\t'
             print(t)
         print('\n')
+
+def policy_SM(s):
+    '''
+    有效的CartPole-v1游戏策略
+    '''
+    from core.utils import softmax
+    # A = s[3] / s[2] + (s[2] + s[2] * np.sin(s[2])) / s[3]
+    A = s[1] + s[3] + np.sin(s[2])
+    B = s[2]**2 + np.cos(s[0])
+    C = B/A
+    a1 = -10.64138864 * (C-B) + 46.53673285 * np.cos(B) + 12.73689465
+    a2 = 19.24603433 * (C-B) + 30.11917319 * np.cos(B) + 22.70999363
+    aa = [a1, a2]
+    aa = np.maximum(aa, 0)
+    p = softmax(aa, with_clip=50)
+    action = np.random.choice(2, p=p)
+    
+    return action # [a1, a2], p, 
+# print(policy_SM())
 if __name__ == "__main__":
     pass
