@@ -98,7 +98,7 @@ for epi in range(config.num_episodes):
     best_reward = rollout.remote(env, ds, es.result.xfavorite, config.rollout_episode, True)
     best_reward = ray.get(best_reward)
     
-    print('episode:', epi, 'mean:', np.round(rewards.mean(), 2), np.round(rewards.std(), 2), 'max:', round(np.max(rewards),2), 'best:', *best_reward, 'time:', time.time()-tick)
+    print('episode:', epi, 'mean:', round(rewards.mean(), 2), round(rewards.std(), 2), 'max:', round(np.max(rewards),2), 'best:', *best_reward, 'time:', time.time()-tick)
     # print(rewards, ranks)
     if epi % config.ckpt_freq == 0:
         with open(os.path.join(dir, 'CMA_ES-'+str(epi)+'.pkl'), 'wb') as f:
