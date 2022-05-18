@@ -1,7 +1,7 @@
 import numpy as np
 
 
-def softmax(x, alpha=0.1, with_clip=100):
+def softmax(x, alpha=0.1, with_clip=50):
     x = np.clip(x, -with_clip, with_clip)
     return np.exp(alpha*x)/(np.exp(alpha*x)).sum()
 
