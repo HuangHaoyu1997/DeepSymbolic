@@ -61,7 +61,7 @@ class Linear:
     def relu(self, x):
         return np.maximum(x, 0)
     
-    def softmax(self, x, alpha=0.1, with_clip=50):
+    def softmax(self, x, alpha=1.0, with_clip=50):
         x = np.clip(x, -with_clip, with_clip)
         return np.exp(alpha*x)/(np.exp(alpha*x)).sum()
 
