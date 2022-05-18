@@ -8,6 +8,7 @@ class config:
     num_parallel = 40
     zero_coef = 1.0 # 鼓励采用尽可能多的None操作
     std_coef = 0.0
+    num_mat = 4
     # for CMA-ES
     sigma_init = 1.5
     pop_size = 30

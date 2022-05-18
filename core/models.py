@@ -35,7 +35,6 @@ class Model(nn.Module):
         # return sum([np.prod(params.size()) for params in self.state_dict().values()])
     
     def get_params(self):
-        
         return torch.cat([fc.bias.data for fc in self.fcs])
         # return torch.cat([params.flatten() for params in self.state_dict().values()])
     
@@ -45,7 +44,6 @@ class Model(nn.Module):
         各fc层的weight写入0
         '''
         all_params = torch.tensor(all_params)
-        
         length = len(all_params)//self.num_mat
         for i, fc in enumerate(self.fcs):
             fc.weight.data = torch.zeros(fc.weight.data.shape)
