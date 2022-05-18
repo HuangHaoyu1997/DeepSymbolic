@@ -13,19 +13,20 @@ from torch.distributions import Categorical
 from core.models import Model, Linear
 
 class DeepSymbol():
-    def __init__(self, inpt_dim, out_dim, func_set) -> None:
+    def __init__(self, inpt_dim, out_dim, func_set, num_mat=3) -> None:
         self.inpt_dim = inpt_dim
         self.out_dim = out_dim
         self.func_set = func_set
         self.dict_dim = len(func_set)
-        self.model = Model(inpt_dim = self.inpt_dim, dict_dim= self.dict_dim)
+        self.num_mat = num_mat
+        self.model = Model(self.inpt_dim, self.dict_dim, num_mat)
         self.fc = Linear(inpt_dim, out_dim)
         # self.model.train()
     
     def select_action(self, idxs, state):
         # state = torch.tensor(state)
         _, action1 = self.execute_symbol_mat(state, idxs)
-        action2 = self.fc(action1[2].numpy())
+        action2 = self.fc(action1[-1].numpy())
         action3 = np.random.choice(np.arange(self.out_dim), p=action2)
         # print(action1, action2, action3, '\n')
         # action = tanh(action, alpha=0.05)
@@ -43,23 +44,12 @@ class DeepSymbol():
             entropies = torch.sum(torch.tensor([p.entropy().log().sum() for p in dist]))
         elif test:
             # 固定取最大概率的op
-            mat1, mat2, mat3 = self.model()
-            _, mat1_idx = torch.max(mat1, dim=-1)
-            _, mat2_idx = torch.max(mat2, dim=-1)
-            _, mat3_idx = torch.max(mat3, dim=-1)
-            idxs = [mat1_idx, mat2_idx, mat3_idx]
+            mats = self.model()
+            idxs = []
+            for mat in mats:
+                _, mat_idx = torch.max(mat, dim=-1)
+                idxs.append(mat_idx)
             log_prob, entropies = None, None
-        # mat1, mat2, mat3 = self.model()
-        # p1 = Categorical(mat1)
-        # p2 = Categorical(mat2)
-        # p3 = Categorical(mat3)
-        # idx1 = p1.sample()
-        # idx2 = p2.sample()
-        # idx3 = p3.sample()
-        # idxs = [idx1, idx2, idx3]
-        # log_prob = p1.log_prob(idx1).sum() + p2.log_prob(idx2).sum() + p3.log_prob(idx3).sum()
-        # entropies = p1.entropy().log().sum() + p2.entropy().log().sum() + p3.entropy().log().sum()
-        # print(log_prob, entropies)
         
         return idxs, log_prob, entropies
     

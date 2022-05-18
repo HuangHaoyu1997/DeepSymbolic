@@ -79,7 +79,7 @@ def rollout(env, ds:DeepSymbol, solution, num_episode=config.rollout_episode, te
     else: # for test
         return np.mean(rewards), np.mean(num_0) # - np.std(rewards)
 
-ds = DeepSymbol(inpt_dim, out_dim, func_set)
+ds = DeepSymbol(inpt_dim, out_dim, func_set, num_mat=4)
 es = cma.CMAEvolutionStrategy([0.] * (ds.model.num_params + ds.fc.num_params),
                                 config.sigma_init,
                                 {'popsize': config.pop_size

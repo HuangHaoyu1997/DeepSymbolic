@@ -7,37 +7,36 @@ class Model(nn.Module):
     '''
     Model for version 3.0
     '''
-    def __init__(self, inpt_dim, dict_dim, ):
+    def __init__(self, inpt_dim, dict_dim, num_mat):
         super(Model, self).__init__()
         self.inpt_dim = inpt_dim 
         self.dict_dim = dict_dim
-        self.fc1 = nn.Linear(1, inpt_dim*inpt_dim*self.dict_dim)
-        self.fc2 = nn.Linear(1, inpt_dim*inpt_dim*self.dict_dim)
-        self.fc3 = nn.Linear(1, inpt_dim*inpt_dim*self.dict_dim)
+        self.num_mat = num_mat
+        self.fcs = [nn.Linear(1, inpt_dim*inpt_dim*self.dict_dim)] * num_mat
 
     def forward(self, ):
-        mat1 = self.fc1(torch.tensor([0.]))
-        mat1 = mat1.view(self.inpt_dim, self.inpt_dim, self.dict_dim)
-        mat1 = F.softmax(mat1, dim=-1) # mat1.shape=(4,4,5)
-
-        mat2 = self.fc2(torch.tensor([0.]))
-        mat2 = mat2.view(self.inpt_dim, self.inpt_dim, self.dict_dim)
-        mat2 = F.softmax(mat2, dim=-1) # mat2.shape=(4,4,5)
-
-        mat3 = self.fc3(torch.tensor([0.]))
-        mat3 = mat3.view(self.inpt_dim, self.inpt_dim, self.dict_dim)
-        mat3 = F.softmax(mat3, dim=-1) # mat3.shape=(4,4,5)
-        return [mat1, mat2, mat3]
+        x = torch.tensor([0.])
+        mats = []
+        for fc in self.fcs:
+            mat = fc(x)
+            mat = mat.view(self.inpt_dim, self.inpt_dim, self.dict_dim)
+            mat = F.softmax(mat, dim=-1)
+            mats.append(mat)
+        
+        return mats
     
     @property
     def num_params(self):
         # 鉴于输入fc的是常数0, 有用参数仅为各fc的bias
-        return self.fc1.bias.data.size()[0]+self.fc2.bias.data.size()[0]+self.fc3.bias.data.size()[0]
+        count = 0
+        for fc in self.fcs:
+            count += fc.bias.data.size()[0]
+        return count
         # return sum([np.prod(params.size()) for params in self.state_dict().values()])
     
     def get_params(self):
         
-        return torch.cat([self.fc1.bias.data, self.fc2.bias.data, self.fc3.bias.data])
+        return torch.cat([fc.bias.data for fc in self.fcs])
         # return torch.cat([params.flatten() for params in self.state_dict().values()])
     
     def set_params(self, all_params):
@@ -46,19 +45,16 @@ class Model(nn.Module):
         各fc层的weight写入0
         '''
         all_params = torch.tensor(all_params)
-        state_dict = dict()
-        for key, params in self.state_dict().items():
-            if key.split('.')[1]=='weight':
-                state_dict[key] = torch.zeros_like(params)
-            if key.split('.')[1]=='bias':
-                i = int(key.split('.')[0][-1])
-                state_dict[key] = all_params[(i-1)*len(params):i*len(params)]
-        self.load_state_dict(state_dict)
+        
+        length = len(all_params)//self.num_mat
+        for i, fc in enumerate(self.fcs):
+            fc.weight.data = torch.zeros(fc.weight.data.shape)
+            fc.bias.data = all_params[i*length:(i+1)*length]
+
 
 class Linear:
     '''Linear layer implementation using numpy'''
     def __init__(self, in_dim, out_dim) -> None:
-        
         self.weight = np.zeros((in_dim, out_dim), dtype=np.float32)
         self.bias = np.zeros((out_dim), dtype=np.float32)
         
@@ -69,10 +65,10 @@ class Linear:
         x = np.clip(x, -with_clip, with_clip)
         return np.exp(alpha*x)/(np.exp(alpha*x)).sum()
 
-
     def __call__(self, x):
         Y = np.matmul(x, self.weight) + self.bias
         return self.softmax(self.relu(Y))
+
     @property
     def num_params(self,):
         return self.weight.size + self.bias.size
@@ -85,6 +81,10 @@ class Linear:
 
 if __name__ == '__main__':
     
-    model = Model(2, 3)
-    print(model.set_params(torch.rand(36)))
-    print(model.fc3.weight.data)
+    model = Model(2, 3, 4)
+    
+    # print(model.get_params())
+    model.set_params(torch.ones(48))
+    print(model.fcs[0].weight.data, model.fcs[0].bias.data)
+    print(model())
+    # print(model.fc3.weight.data)
