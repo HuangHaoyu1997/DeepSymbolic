@@ -15,12 +15,11 @@ from core.DeepSymbol_v3 import DeepSymbol
 
 run_time = (time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime()))[:19]
 
-env_name = 'CartPole-v1' # 'CartPoleContinuous'
-dir = './results/log-'+env_name+'-'+run_time+'.txt'
+env_name = 'LunarLander-v2' # 'CartPole-v1' # 'CartPoleContinuous'
+logdir = './results/log-'+env_name+'-'+run_time+'.txt'
 # env = CartPoleContinuousEnv()
-
-env_name = 'LunarLander-v2'
 env = gym.make(env_name)
+
 def wrapper(env, test):
     env = gym.wrappers.RecordEpisodeStatistics(env)
     # env = gym.wrappers.ClipAction(env)
@@ -111,7 +110,7 @@ for epi in range(config.num_episodes):
     # print(rewards, ranks)
     
 
-    with open(dir,'a+') as f:
+    with open(logdir,'a+') as f:
         f.write(
             str(epi)+' mean:'+str(round(rewards.mean(), 2))+' '+str(round(rewards.std(), 2))+\
             ' max:'+str(round(np.max(rewards),2))+' best:'+str(best_reward[0])+' '+str(best_reward[1])+\
