@@ -13,7 +13,10 @@ from configuration import config
 from env.CartPoleContinuous import CartPoleContinuousEnv
 from core.DeepSymbol_v3 import DeepSymbol
 
+run_time = (time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime()))[:19]
+
 env_name = 'CartPole-v1' # 'CartPoleContinuous'
+dir = './results/log-'+env_name+'-'+run_time+'.txt'
 # env = CartPoleContinuousEnv()
 
 env_name = 'LunarLander-v2'
@@ -86,6 +89,12 @@ es = cma.CMAEvolutionStrategy([0.] * (ds.model.num_params + ds.fc.num_params),
 
 # training
 for epi in range(config.num_episodes):
+    if epi < 500:
+        config.zero_coef = 0.2
+    elif epi >= 500 and epi < 1000:
+        config.zero_coef = 0.4
+    elif epi >= 1000 and epi < 1500:
+        config.zero_coef = 0.6
     tick = time.time()
     solutions = np.array(es.ask(), dtype=np.float32)
     rewards = [rollout.remote(env, ds, solution, config.rollout_episode, False) for solution in solutions]
@@ -97,8 +106,18 @@ for epi in range(config.num_episodes):
     best_reward = rollout.remote(env, ds, es.result.xfavorite, config.rollout_episode, True)
     best_reward = ray.get(best_reward)
     
-    print('episode:', epi, 'mean:', round(rewards.mean(), 2), round(rewards.std(), 2), 'max:', round(np.max(rewards),2), 'best:', *best_reward, 'time:', time.time()-tick)
+    print('episode:', epi, 'mean:', round(rewards.mean(), 2), round(rewards.std(), 2), \
+        'max:', round(np.max(rewards),2), 'best:', *best_reward, 'time:', time.time()-tick)
     # print(rewards, ranks)
+    
+
+    with open(dir,'a+') as f:
+        f.write(
+            str(epi)+' mean:'+str(round(rewards.mean(), 2))+' '+str(round(rewards.std(), 2))+\
+            ' max:'+str(round(np.max(rewards),2))+' best:'+str(best_reward[0])+' '+str(best_reward[1])+\
+            ' time:'+str(time.time()-tick)+'\n'
+            )
+
     if epi % config.ckpt_freq == 0:
         with open(os.path.join(dir, 'CMA_ES-'+str(epi)+'.pkl'), 'wb') as f:
             pickle.dump([es.result.xbest, es.result.xfavorite], f)
