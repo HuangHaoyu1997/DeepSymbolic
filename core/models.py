@@ -43,7 +43,7 @@ class Model(nn.Module):
         给各fc层的bias写入参数
         各fc层的weight写入0
         '''
-        all_params = torch.tensor(all_params)
+        all_params = torch.tensor(all_params, dtype=torch.float32)
         length = len(all_params)//self.num_mat
         for i, fc in enumerate(self.fcs):
             fc.weight.data = torch.zeros(fc.weight.data.shape)
