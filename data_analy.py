@@ -8,7 +8,7 @@ from env.CartPoleContinuous import CartPoleContinuousEnv
 # sys.path.append(r'C:/Users/44670/Documents/GitHub/DeepSymbolic')
 
 # ckpt_deepsymbol-v3_LunarLander-v2
-with open('./results/3090/CMA_ES-1464.pkl', 'rb') as f:
+with open('./results/TitanXP/CMA_ES-2018.pkl', 'rb') as f:
     best_solution = pickle.load(f)
     # print(best_solution[1])
 
@@ -26,7 +26,7 @@ print(ds.fc.weight, ds.fc.bias)
 
 mats, _, _ = ds.sym_mat(True)
 symbols = ['+', '-', 'x', '/', 's', 'c', '=', '0']
-print_matrix(mats, symbols, 4)
+print_matrix(mats, symbols, 6)
 # result = ds.execute_symbol_mat([1,2,3,4,5,6,7,8], [mat1_idx])
 # print(result.sum(1))
 
@@ -35,7 +35,7 @@ print('Number of None operations:',zero_number)
 
 
 rrr = []
-for i in range(30):
+for i in range(100):
     s = env.reset()
     rr = 0
     done = False
