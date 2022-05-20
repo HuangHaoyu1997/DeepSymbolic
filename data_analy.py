@@ -8,7 +8,7 @@ from env.CartPoleContinuous import CartPoleContinuousEnv
 # sys.path.append(r'C:/Users/44670/Documents/GitHub/DeepSymbolic')
 
 # ckpt_deepsymbol-v3_LunarLander-v2
-with open('./results/TitanXP/CMA_ES-2018.pkl', 'rb') as f:
+with open('./results/TitanXP/CMA_ES-2164.pkl', 'rb') as f:
     best_solution = pickle.load(f)
     # print(best_solution[1])
 
