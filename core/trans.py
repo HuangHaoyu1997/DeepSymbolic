@@ -2,13 +2,14 @@ import numpy as np
 import torch
 import torch.nn as nn
 len_traj = 13
-batch = 10
+batch_size = 10
 d_obs = 6
 d_embed = 7 # embedding dimension
 n_heads = 8
 d_k = 16
 d_hidden = 16
-trajectory = torch.rand(batch, len_traj, d_obs)
+n_layers = 4 # Encoder内含
+trajectory = torch.rand(batch_size, len_traj, d_obs)
 
 class Embedding(nn.Module):
     '''将轨迹序列映射到隐空间'''
@@ -54,7 +55,7 @@ class MultiHeadAttention(nn.Module):
         # contiguous()的功能类似deepcopy
         context = context.transpose(1, 2).contiguous().view(batch_size, -1, n_heads * d_k) # context: [batch_size x len_q x n_heads * d_k] 最后一个维度是将8个head concat起来，维度依然512
         
-        output = self.fc(context) # [batch, len_q, d_embed]
+        output = self.fc(context) # [batch_size, len_q, d_embed]
         return self.layer_norm(output + residual), attn # output: [batch_size x len_q x d_model]
 
 class PoswiseFeedForwardNet(nn.Module):
@@ -82,9 +83,23 @@ class EncoderLayer(nn.Module):
         x = self.PoswiseFeedForwardNet(x) # enc_outputs: [batch_size x len_q x d_model]
         return x, attn
 
-# print(trajectory.shape)
-em_model = Embedding(d_obs, d_embed)
-layer = EncoderLayer()
-x = em_model(trajectory)
-context, attn = EncoderLayer()(x)
-print(context.shape, attn.shape)
+class Encoder(nn.Module):
+    def __init__(self):
+        super(Encoder, self).__init__()
+        self.embedding = Embedding(inpt_dim=d_obs, embed_dim=d_embed) # state dimension，embedding dimension
+        self.layers = nn.ModuleList([EncoderLayer() for _ in range(n_layers)])
+
+    def forward(self, x): # enc_inputs : [batch_size x source_len]
+        y = self.embedding(x)
+        self_attns = []
+        for layer in self.layers:
+            y, self_attn = layer(y)
+            self_attns.append(self_attn)
+        return y, self_attns
+
+
+encoder = Encoder()
+context, attn = Encoder()(trajectory)
+from torchinfo import summary
+summary(encoder, (batch_size, len_traj, d_obs))
+print(context.shape, attn[0].shape)
