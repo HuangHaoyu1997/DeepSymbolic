@@ -1,4 +1,4 @@
-import torch
+import torch, pickle
 import torch.nn as nn
 from torch.distributions import MultivariateNormal, Categorical
 import gym
@@ -139,7 +139,7 @@ def main():
     solved_reward = 500         # stop training if avg_reward > solved_reward
     log_interval = 1           # print avg reward in the interval
     max_episodes = 10000        # max training episodes
-    max_timesteps = 1000        # max timesteps in one episode
+    max_timesteps = 500        # max timesteps in one episode
     
     update_timestep = 2000      # update policy every n timesteps
     K_epochs = 80               # update policy for K epochs
@@ -167,21 +167,22 @@ def main():
     ppo = PPO(state_dim, action_dim, lr, betas, gamma, K_epochs, eps_clip)
     
     # logging variables
-    running_reward = 0
-    avg_length = 0
     time_step = 0
     
     # training loop
+    data_storage = []
     for i_episode in range(1, max_episodes+1):
         state = env.reset()
+        trajectory = []
+        reward = 0
         for t in range(max_timesteps):
             time_step += 1
-            # Running policy_old:
             action = ppo.select_action(state, memory)
-            state, reward, done, _ = env.step(action)
-            
+            next_state, r, done, _ = env.step(action)
+            trajectory.append([state, action, r])
+            state = next_state
             # Saving reward and is_terminals:
-            memory.rewards.append(reward)
+            memory.rewards.append(r)
             memory.is_terminals.append(done)
             
             # update if its time
@@ -189,30 +190,30 @@ def main():
                 ppo.update(memory)
                 memory.clear_memory()
                 time_step = 0
-            running_reward += reward
+            reward += r
             if render: env.render()
             if done: break
-        
-        avg_length += t
-        
+        if reward > 80.0:
+            data_storage.append(trajectory)
+            print(len(data_storage), reward)
+        if len(data_storage) % 20 == 0:
+            with open('./data/good_trajectories.pkl', 'wb') as f:
+                pickle.dump(data_storage, f)
+
         # stop training if avg_reward > solved_reward
-        if running_reward / log_interval> solved_reward:
+        if reward > solved_reward:
             print("########## Solved! ##########")
             torch.save(ppo.policy.state_dict(), './PPO_continuous_solved_{}.pth'.format(env_name))
             break
         
         # save every 500 episodes
         if i_episode % 500 == 0:
-            torch.save(ppo.policy.state_dict(), './PPO_continuous_{}.pth'.format(env_name))
+            torch.save(ppo.policy.state_dict(), './results/PPO_continuous_{}.pth'.format(env_name))
             
         # logging
-        if i_episode % log_interval == 0:
-            avg_length = int(avg_length/log_interval)
-            running_reward = round(running_reward/log_interval, 2)
-            
-            print('Episode {} \t Avg length: {} \t Avg reward: {}'.format(i_episode, avg_length, running_reward))
-            running_reward = 0
-            avg_length = 0
-            
+        reward = round(reward, 2)
+        print('Episode {} \t Epi length: {} \t Epi reward: {}'.format(i_episode, t, reward))
+        
+        
 if __name__ == '__main__':
     main()
