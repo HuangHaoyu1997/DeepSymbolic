@@ -8,7 +8,7 @@ from env.CartPoleContinuous import CartPoleContinuousEnv
 # sys.path.append(r'C:/Users/44670/Documents/GitHub/DeepSymbolic')
 
 # ckpt_deepsymbol-v3_LunarLander-v2
-with open('./results/TitanXP/CMA_ES-2164.pkl', 'rb') as f:
+with open('./results/TitanXP/CMA_ES-3216.pkl', 'rb') as f:
     best_solution = pickle.load(f)
     # print(best_solution[1])
 
@@ -35,7 +35,7 @@ print('Number of None operations:',zero_number)
 
 
 rrr = []
-for i in range(100):
+for i in range(25):
     s = env.reset()
     rr = 0
     done = False

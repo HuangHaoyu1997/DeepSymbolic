@@ -40,13 +40,13 @@ class MultiHeadAttention(nn.Module):
         self.fc = nn.Linear(n_heads * d_k, d_embed)
         self.layer_norm = nn.LayerNorm(d_embed)
 
-    def forward(self, Q, K, V):
+    def forward(self, x):
         # q: [batch_size x len_q x d_model], k: [batch_size x len_k x d_model], v: [batch_size x len_k x d_model]
-        residual, batch_size = Q, Q.size(0) # 残差跨层连接
+        residual, batch_size = x, x.size(0) # 残差跨层连接
         
-        q_s = self.W_Q(Q).view(batch_size, -1, n_heads, d_k).transpose(1,2)  # q_s: [batch_size x n_heads x len_q x d_k]
-        k_s = self.W_K(K).view(batch_size, -1, n_heads, d_k).transpose(1,2)  # k_s: [batch_size x n_heads x len_q x d_k]
-        v_s = self.W_V(V).view(batch_size, -1, n_heads, d_k).transpose(1,2)  # v_s: [batch_size x n_heads x len_q x d_k]
+        q_s = self.W_Q(x).view(batch_size, -1, n_heads, d_k).transpose(1,2)  # q_s: [batch_size x n_heads x len_q x d_k]
+        k_s = self.W_K(x).view(batch_size, -1, n_heads, d_k).transpose(1,2)  # k_s: [batch_size x n_heads x len_q x d_k]
+        v_s = self.W_V(x).view(batch_size, -1, n_heads, d_k).transpose(1,2)  # v_s: [batch_size x n_heads x len_q x d_k]
         
         # context: [batch_size x n_heads x len_q x d_k]
         # attn: [batch_size x n_heads x len_q(=len_k) x len_k(=len_q)]
@@ -64,15 +64,27 @@ class PoswiseFeedForwardNet(nn.Module):
         self.conv1 = nn.Conv1d(in_channels=d_embed, out_channels=d_hidden, kernel_size=1)
         self.conv2 = nn.Conv1d(in_channels=d_hidden, out_channels=d_embed, kernel_size=1)
         self.layer_norm = nn.LayerNorm(d_embed)
+    def forward(self, x):
+        residual = x # inputs : [batch_size, len_q, d_model]
+        x = nn.ReLU()(self.conv1(x.transpose(1, 2)))
+        x = self.conv2(x).transpose(1, 2)
+        return self.layer_norm(x + residual)
 
-    def forward(self, inputs):
-        residual = inputs # inputs : [batch_size, len_q, d_model]
-        output = nn.ReLU()(self.conv1(inputs.transpose(1, 2)))
-        output = self.conv2(output).transpose(1, 2)
-        return self.layer_norm(output + residual)
+class EncoderLayer(nn.Module):
+    def __init__(self):
+        super(EncoderLayer, self).__init__()
+        # 1个encoder layer由2个模块组成
+        self.MultiHeadAttention = MultiHeadAttention()
+        self.PoswiseFeedForwardNet = PoswiseFeedForwardNet()
+
+    def forward(self, x):
+        x, attn = self.MultiHeadAttention(x) # enc_inputs to same Q,K,V
+        x = self.PoswiseFeedForwardNet(x) # enc_outputs: [batch_size x len_q x d_model]
+        return x, attn
+
 # print(trajectory.shape)
 em_model = Embedding(d_obs, d_embed)
-attn_model = MultiHeadAttention()
+layer = EncoderLayer()
 x = em_model(trajectory)
-context, attn = attn_model(x, x, x)
+context, attn = EncoderLayer()(x)
 print(context.shape, attn.shape)
