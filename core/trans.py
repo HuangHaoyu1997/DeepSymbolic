@@ -2,12 +2,13 @@ import numpy as np
 import torch
 import torch.nn as nn
 len_traj = 13
-batch_size = 10
+batch_size = 3
 d_obs = 6
 d_embed = 7 # embedding dimension
 n_heads = 8
 d_k = 16
 d_hidden = 16
+d_classification = 2
 n_layers = 4 # Encoder内含
 trajectory = torch.rand(batch_size, len_traj, d_obs)
 
@@ -88,6 +89,7 @@ class Encoder(nn.Module):
         super(Encoder, self).__init__()
         self.embedding = Embedding(inpt_dim=d_obs, embed_dim=d_embed) # state dimension，embedding dimension
         self.layers = nn.ModuleList([EncoderLayer() for _ in range(n_layers)])
+        self.fc = nn.Linear(d_embed, d_classification)
 
     def forward(self, x): # enc_inputs : [batch_size x source_len]
         y = self.embedding(x)
@@ -95,11 +97,22 @@ class Encoder(nn.Module):
         for layer in self.layers:
             y, self_attn = layer(y)
             self_attns.append(self_attn)
-        return y, self_attns
+        
+        y = y.mean(dim=1) # [batch_size, d_embed]
+        out = torch.softmax(self.fc(y), dim=-1)
+        return out, self_attns
 
 
 encoder = Encoder()
-context, attn = Encoder()(trajectory)
+for _ in range(10):
+    trajectory = torch.rand(batch_size, len_traj, d_obs)
+    pred, _ = encoder(trajectory)
+    print(torch.argmax(pred,-1))
+
+
+'''
 from torchinfo import summary
 summary(encoder, (batch_size, len_traj, d_obs))
 print(context.shape, attn[0].shape)
+
+'''
