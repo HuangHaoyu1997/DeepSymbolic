@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 len_traj = 13
 batch_size = 3
 d_obs = 6
@@ -16,7 +17,7 @@ class Embedding(nn.Module):
     '''将轨迹序列映射到隐空间'''
     def __init__(self, inpt_dim, embed_dim):
         super(Embedding, self).__init__()
-        self.fc = nn.Linear(inpt_dim, embed_dim, bias=False)
+        self.fc = nn.Linear(inpt_dim, embed_dim)
     
     def forward(self, x):
         x = self.fc(x)
@@ -106,13 +107,13 @@ class Encoder(nn.Module):
             attentions.append(attention)
         
         y = y.mean(dim=1) # [batch_size, d_embed]
-        out = torch.softmax(self.fc(y), dim=-1)
+        out = F.log_softmax(self.fc(y), dim=-1)
         return out, attentions
 
 if __name__ == '__main__':
     encoder = Encoder(d_obs, d_embed, d_class, d_k, d_hidden, n_heads, n_layers)
     for _ in range(10):
-        trajectory = torch.rand(batch_size, len_traj, d_obs)
+        trajectory = torch.rand(batch_size, len_traj, d_obs, dtype=torch.float64)
         pred, _ = encoder(trajectory)
         print(torch.argmax(pred,-1))
 
