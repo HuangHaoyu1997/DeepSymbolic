@@ -46,11 +46,11 @@ def get_batch_data(dir='./data/batch_data/'):
         with open(dir+d, 'rb') as f:
             total_data.extend(pickle.load(f))
     return total_data
+
 data = get_batch_data()
 num_samples = len(data)
 false_data = np.random.rand(num_samples, 500, d_obs).tolist()
 data.extend(false_data)
-print(len(data))
 
 idx = [i for i in range(2*num_samples)]
 for epoch in range(num_epoch):
