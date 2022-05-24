@@ -1,7 +1,13 @@
 {
     "cSpell.words": [
+        "ckpt",
+        "coef",
+        "cpus",
         "dtype",
+        "idxs",
         "inpt",
-        "relu"
+        "relu",
+        "xbest",
+        "xfavorite"
     ]
 }
