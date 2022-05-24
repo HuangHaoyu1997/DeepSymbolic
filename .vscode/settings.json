@@ -3,10 +3,16 @@
         "ckpt",
         "coef",
         "cpus",
+        "cuda",
+        "dlist",
         "dtype",
         "idxs",
         "inpt",
+        "optim",
         "relu",
+        "tolist",
+        "traj",
+        "unsqueeze",
         "xbest",
         "xfavorite"
     ]

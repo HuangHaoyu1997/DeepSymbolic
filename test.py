@@ -40,44 +40,57 @@ def data_generate(dir = './data/bad_trajectories.pkl', action_dim = 4):
         pickle.dump(batch_data, f)
 # data_generate()
 def get_batch_data(dir='./data/batch_data/'):
-    train_data = []
+    true_data = []
     dlist = os.listdir(dir)
     for d in dlist:
         if d != 'test.pkl':
             with open(dir+d, 'rb') as f:
-                train_data.extend(pickle.load(f))
+                true_data.extend(pickle.load(f))
+    Ntrue = len(true_data)
     with open(dir+'test.pkl', 'rb') as f:
-        test_data = pickle.load(f)
-    return train_data, test_data
+        false_data = pickle.load(f)
+    true_data.extend(false_data)
 
-def test(epoch, test_data, model):
-    test_acc = 0
-    for i, x in enumerate(test_data):
+    label = np.ones((len(true_data)), dtype=np.int16)
+    label[Ntrue:] = 0
+    return true_data, label
+
+def test(epoch, test_data, test_label, model:Encoder):
+    model.eval()
+    test_err = 0
+    for x, y in zip(test_data, test_label):
         x = torch.FloatTensor(x).unsqueeze_(0).to(device)
         pred, _ = model(x)
-        label = torch.tensor([1]) if i < N_test_samples else torch.tensor([0])
+        label = torch.tensor(y)
         if torch.argmax(pred.cpu()) != label:
-            test_acc += 1
-    print(epoch, 1 - test_acc/len(test_data))
+            test_err += 1
+    print(epoch, 1 - test_err/len(test_data))
 
-train_data, test_data = get_batch_data()
-N_train_samples = len(train_data)
-false_data = np.random.rand(N_train_samples, 500, d_obs).tolist()
-train_data.extend(false_data)
+data, label = get_batch_data()
 
-N_test_samples = len(test_data)
-false_data = np.random.rand(N_test_samples, 500, d_obs).tolist()
-test_data.extend(false_data)
 
-idx = [i for i in range(2*N_train_samples)]
+def shuffle(data, label):
+    N_samples = len(data)
+    idx = [i for i in range(N_samples)]
+    random.shuffle(idx)
+    train_data = [data[i] for i in idx[:int(0.8*N_samples)]]
+    train_label = [label[i] for i in idx[:int(0.8*N_samples)]]
+    test_data = [data[i] for i in idx[int(0.8*N_samples):]]
+    test_label = [label[i] for i in idx[int(0.8*N_samples):]]
+    return train_data, train_label, test_data, test_label
+
+train_data, train_label, test_data, test_label = shuffle(data, label)
+Ntrain = len(train_data)
+Ntest = len(test_data)
 for epoch in range(num_epoch):
+    idx = [i for i in range(Ntrain)]
     random.shuffle(idx)
     loss, acc = 0, 0
-    for i in range(2*N_train_samples):
-        # index = idx[i*batch_size:(i+1)*batch_size]
+    for i in range(Ntrain):
+        
         x = torch.FloatTensor(train_data[idx[i]]).unsqueeze_(0).to(device)
         pred, _ = encoder(x)
-        label = torch.tensor([1]) if idx[i] < N_train_samples else torch.tensor([0])
+        label = torch.LongTensor([train_label[idx[i]]])
         loss += F.nll_loss(pred, label.to(device))
         if torch.argmax(pred.cpu()) != label: # error counts
             acc += 1
@@ -87,7 +100,7 @@ for epoch in range(num_epoch):
             optimizer.step()
             print(epoch, i, loss.cpu().item()/batch_size)
             loss = 0
-        if i%1000 == 0:
-            test(epoch, test_data, encoder)
+        if i % 100 == 0:
+            test(epoch, test_data, test_label, encoder)
 
 
