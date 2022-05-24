@@ -122,5 +122,4 @@ if __name__ == '__main__':
     from torchinfo import summary
     summary(encoder, (batch_size, len_traj, d_obs))
     print(context.shape, attn[0].shape)
-
     '''
