@@ -13,12 +13,13 @@ from torch.distributions import Categorical
 from core.models import Model, Linear
 
 class DeepSymbol():
-    def __init__(self, inpt_dim, out_dim, func_set, num_mat=3) -> None:
+    def __init__(self, inpt_dim, out_dim, func_set, num_mat=3, is_discrete=True) -> None:
         self.inpt_dim = inpt_dim
         self.out_dim = out_dim
         self.func_set = func_set
         self.dict_dim = len(func_set)
         self.num_mat = num_mat
+        self.is_discrete = is_discrete
         self.model = Model(self.inpt_dim, self.dict_dim, num_mat)
         self.fc = Linear(inpt_dim, out_dim)
         # self.model.train()
@@ -27,10 +28,11 @@ class DeepSymbol():
         # state = torch.tensor(state)
         _, action1 = self.execute_symbol_mat(state, idxs)
         action2 = self.fc(action1[-1].numpy())
-        action3 = np.random.choice(np.arange(self.out_dim), p=action2)
-        # print(action1, action2, action3, '\n')
-        # action = tanh(action, alpha=0.05)
-        # print(action,'\n')
+        if self.is_discrete:
+            action3 = np.random.choice(np.arange(self.out_dim), p=action2)
+        else:
+            action3 = np.maximum(action2, 0)
+
         return action3
 
     def sym_mat(self, test=False):

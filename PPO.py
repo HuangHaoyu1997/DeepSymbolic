@@ -24,7 +24,6 @@ class Memory:
 class ActorCritic(nn.Module):
     def __init__(self, state_dim, action_dim):
         super(ActorCritic, self).__init__()
-        # action mean range -1 to 1
         self.actor =  nn.Sequential(
                 nn.Linear(state_dim, 64),
                 nn.Tanh(),
@@ -149,7 +148,7 @@ def main():
     lr = 3e-4                   # parameters for Adam optimizer
     betas = (0.9, 0.999)
     
-    random_seed = 123
+    random_seed = 234
     #############################################
     
     # creating environment
@@ -172,6 +171,7 @@ def main():
     # training loop
     data_storage = []
     for i_episode in range(1, max_episodes+1):
+        env.seed(random_seed+i_episode)
         state = env.reset()
         trajectory = []
         reward = 0
@@ -193,11 +193,11 @@ def main():
             reward += r
             if render: env.render()
             if done: break
-        if reward > 80.0:
+        if reward < 50.0:
             data_storage.append(trajectory)
             print(len(data_storage), reward)
         if len(data_storage) % 20 == 0:
-            with open('./data/good_trajectories.pkl', 'wb') as f:
+            with open('./data/bad_trajectories.pkl', 'wb') as f:
                 pickle.dump(data_storage, f)
 
         # stop training if avg_reward > solved_reward
