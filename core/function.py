@@ -30,6 +30,9 @@ def torchProDiv(x, y):
         return torch.div(x, y+1e-3)
     else:
         return torch.div(x, y)
+def torchMean(x, y):
+    return 0.5 * (x + y)
+
 func_set = [
     Function(torch.add, 2, 'torchAdd'),
     Function(torch.sub, 2, 'torchSub'),
@@ -42,6 +45,30 @@ func_set = [
     # Function(torch.log, 1, 'torchLog'),
     Function(torch.sin, 1, 'torchSin'),
     Function(torch.cos, 1, 'torchCos'),
+    # Function(torch.exp, 1, 'torchExp'),
+    Function(torch.neg, 1, 'torchNeg'),
+    # Function(torch.abs, 1, 'torchAbs'),
+    # Function(torch.square, 1, 'torchX^2'),
+    # Function(torch.sqrt, 1, 'torchSqrt'),
+    # Function(torch.sign, 1, 'torchSgn'),
+    # Function(torch.relu, 1, 'torchRelu'),
+    # Function(torchInv, 1, 'torchInv'),
+    # Function(torchConst, 1, 'torchConst'),
+    Function(torchNone, 1, 'torchNone'),
+]
+func_set_OW = [
+    Function(torch.add, 2, 'torchAdd'),
+    Function(torch.sub, 2, 'torchSub'),
+    Function(torch.mul, 2, 'torchMul'),
+    Function(torchProDiv, 2, 'torchDiv'),
+    # Function(torch.div, 2, 'torchDiv'),
+    Function(torch.max, 2, 'torchMax'),
+    Function(torch.min, 2, 'torchMin'),
+    Function(torchMean, 2, 'torchMean'),
+
+    # Function(torch.log, 1, 'torchLog'),
+    # Function(torch.sin, 1, 'torchSin'),
+    # Function(torch.cos, 1, 'torchCos'),
     # Function(torch.exp, 1, 'torchExp'),
     Function(torch.neg, 1, 'torchNeg'),
     # Function(torch.abs, 1, 'torchAbs'),
