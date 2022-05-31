@@ -4,7 +4,7 @@ for Oil World Task
 
 '''
 import numpy as np
-from core.function import func_set
+from core.function import func_set_OW
 import os, sys, gym, cma, ray, time, pickle, torch, random
 from copy import deepcopy
 
@@ -74,7 +74,7 @@ def rollout(env:Oil_World, ds:DeepSymbol, solution, num_episode=config.rollout_e
     else: # for test
         return np.mean(rewards), np.mean(num_0) # - np.std(rewards)
 
-ds = DeepSymbol(inpt_dim, out_dim, func_set, num_mat=config.num_mat, is_discrete=False)
+ds = DeepSymbol(inpt_dim, out_dim, func_set_OW, num_mat=config.num_mat, is_discrete=False)
 es = cma.CMAEvolutionStrategy([0.] * (ds.model.num_params + ds.fc.num_params),
                                 config.sigma_init,
                                 {'popsize': config.pop_size
