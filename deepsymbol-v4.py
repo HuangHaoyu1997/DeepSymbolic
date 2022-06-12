@@ -11,8 +11,11 @@ class Individual:
         self.M = M
         self.N = N
         self.L = (N+M)*N
+        self.threshold = 0.5
+
     def gene(self,):
         '''generate gene'''
         tmp = np.zeros((self.L),dtype=np.int16)
-        idx = [random.random() for _ in range(self.L)]
+        idx = np.array([random.random() for _ in range(self.L)])
+        np.where(idx>self.threshold)
         return
