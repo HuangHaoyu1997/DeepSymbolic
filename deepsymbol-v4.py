@@ -26,7 +26,7 @@ class Individual:
         tmp[idx] = 1
         return tmp
 
-def population(Npop, obs_dim, Nnode):
+def create_population(Npop, obs_dim, Nnode):
     '''generate population with size Npop'''
     return [Individual(obs_dim, Nnode) for _ in range(Npop)]
 
@@ -172,7 +172,7 @@ class ES:
                 ) -> None:
         self.pop_size = pop_size
         self.mut_rate = mutation_rate
-        self.pop = population(pop_size, obs_dim, Nnode)
+        self.pop = create_population(pop_size, obs_dim, Nnode)
         self.elite_rate = elite_rate
         self.elite_pop = pop_size * elite_rate
     
@@ -183,9 +183,9 @@ class ES:
         pass
 
     def tell(self, fitness):
-        
+
 if __name__ == '__main__':
-    # pop = population(10, 5, 13)
+    # pop = create_population(10, 5, 13)
     # adj_dict = translate(pop[0])
     # for i in adj_dict:
     #     print(adj_dict[i])
