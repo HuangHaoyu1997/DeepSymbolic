@@ -1,9 +1,10 @@
 from collections import deque
-from turtle import forward
+from copy import deepcopy
 import gym, pickle, random
 import numpy as np
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 class Individual:
     def __init__(self, M, N, ) -> None:
@@ -11,12 +12,12 @@ class Individual:
         M: obs dim
         N: max varibale number
         '''
-        
         self.M = M
         self.N = N
         self.L = (N+M)*N
         self.threshold = 0.5
         self.genetype = self.gene()
+        self.fitness = 0.
 
     def gene(self,):
         '''generate gene'''
@@ -53,114 +54,30 @@ class StateVar:
         self.buffer.append(s)
     def clear(self,):
         self.buffer = deque(maxlen=self.max_len)
-        [self.buffer.append(00.) for _ in range(self.max_len)]
+        [self.buffer.append(0.) for _ in range(self.max_len)]
 
 class GAT(nn.Module):
-    def __init__(self) -> None:
+    def __init__(self, inpt_dim, hidden_dim, out_dim) -> None:
         super(GAT, self).__init__()
-        self.fc = nn.Linear(10,2)
-    def forward(self, x):
-        return self.fc(x)
+        self.inpt_dim = inpt_dim
+        self.out_dim = out_dim
+        self.hid_dim = hidden_dim
+        
+        self.encoding_fc = nn.Linear(inpt_dim, hidden_dim)
+        self.update_fc = nn.Linear(hidden_dim, hidden_dim)
+        
+    def forward(self, state_vars, internal, graph):
+        state = torch.tensor([svar.buffer for svar in state_vars])
+        
+        state_embed = F.relu(self.encoding_fc(state))
+        internal_embed = F.relu(self.encoding_fc(internal))
+        
+        for key in graph:
+            state_neigh, var_neigh = graph[key]
+            print(state_neigh, var_neigh)
+            print(state_embed[state_neigh].sum(0))
+        return state_embed, internal_embed
 
-class SimpleGA:
-    '''Simple Genetic Algorithm.'''
-    def __init__(self, num_params,      # number of model parameters
-                sigma_init=0.1,        # initial standard deviation
-                sigma_decay=0.999,     # anneal standard deviation
-                sigma_limit=0.01,      # stop annealing if less than this
-                popsize=256,           # population size
-                elite_ratio=0.1,       # percentage of the elites
-                forget_best=False,     # forget the historical best elites
-                weight_decay=0.01,     # weight decay coefficient
-                ):
-
-        self.num_params = num_params
-        self.sigma_init = sigma_init
-        self.sigma_decay = sigma_decay
-        self.sigma_limit = sigma_limit
-        self.popsize = popsize
-
-        self.elite_ratio = elite_ratio
-        self.elite_popsize = int(self.popsize * self.elite_ratio)
-
-        self.sigma = self.sigma_init
-        self.elite_params = np.zeros((self.elite_popsize, self.num_params))
-        self.elite_rewards = np.zeros(self.elite_popsize)
-        self.best_param = np.zeros(self.num_params)
-        self.best_reward = 0
-        self.first_iteration = True
-        self.forget_best = forget_best
-        self.weight_decay = weight_decay
-
-    def rms_stdev(self):
-        return self.sigma # same sigma for all parameters.
-
-    def ask(self):
-        '''returns a list of parameters'''
-        self.epsilon = np.random.randn(self.popsize, self.num_params) * self.sigma
-        solutions = []
-    
-        def mate(a, b):
-            c = np.copy(a)
-            idx = np.where(np.random.rand((c.size)) > 0.5)
-            c[idx] = b[idx]
-            return c
-    
-        elite_range = range(self.elite_popsize)
-        for i in range(self.popsize):
-            idx_a = np.random.choice(elite_range)
-            idx_b = np.random.choice(elite_range)
-            child_params = mate(self.elite_params[idx_a], self.elite_params[idx_b])
-            solutions.append(child_params + self.epsilon[i])
-
-        solutions = np.array(solutions)
-        self.solutions = solutions
-
-        return solutions
-
-    def tell(self, reward_table_result):
-        # input must be a numpy float array
-        assert(len(reward_table_result) == self.popsize), "Inconsistent reward_table size reported."
-
-        reward_table = np.array(reward_table_result)
-    
-        if self.weight_decay > 0:
-            l2_decay = compute_weight_decay(self.weight_decay, self.solutions)
-            reward_table += l2_decay
-
-        if self.forget_best or self.first_iteration:
-            reward = reward_table
-            solution = self.solutions
-        else:
-            reward = np.concatenate([reward_table, self.elite_rewards])
-            solution = np.concatenate([self.solutions, self.elite_params])
-
-        idx = np.argsort(reward)[::-1][0:self.elite_popsize]
-
-        self.elite_rewards = reward[idx]
-        self.elite_params = solution[idx]
-
-        self.curr_best_reward = self.elite_rewards[0]
-    
-        if self.first_iteration or (self.curr_best_reward > self.best_reward):
-            self.first_iteration = False
-            self.best_reward = self.elite_rewards[0]
-            self.best_param = np.copy(self.elite_params[0])
-
-        if (self.sigma > self.sigma_limit):
-            self.sigma *= self.sigma_decay
-
-    def current_param(self):
-        return self.elite_params[0]
-
-    def set_mu(self, mu):
-        pass
-
-    def best_param(self):
-        return self.best_param
-
-    def result(self): # return best params so far, along with historically best reward, curr reward, sigma
-        return (self.best_param, self.best_reward, self.curr_best_reward, self.sigma)
 
 class ES:
     def __init__(self,
@@ -176,22 +93,41 @@ class ES:
         self.cross_rate = crossover_rate
         self.pop = create_population(pop_size, obs_dim, Nnode)
         self.elite_rate = elite_rate
-        self.elite_pop = pop_size * elite_rate
+        self.elite_pop = int(pop_size * elite_rate)
     
     def ask(self,):
+        # solutions = [ind.genetype for ind in self.pop]
+        # return solutions
         return self.pop
-        
-    def crossover(self, ind1, ind2):
+
+    def crossover(self, ind1:Individual, ind2:Individual):
         idx = np.array([random.random() for _ in range(ind1.L)])
-        idx = np.where(idx<self.mut_rate)
+        idx = np.where(idx<self.cross_rate)
+        cross_batch1 = deepcopy(ind1.genetype[idx])
+        cross_batch2 = deepcopy(ind2.genetype[idx])
+        ind1.genetype[idx] = cross_batch2
+        ind2.genetype[idx] = cross_batch1
 
     def mutation(self, ind:Individual):
-        idx = np.array([random.random() for _ in range(ind.L)])
-        idx = np.where(idx<self.mut_rate)
-        ind.genetype[idx] = 1 - ind.genetype[idx]
+        ind1 = deepcopy(ind)
+        idx = np.array([random.random() for _ in range(ind1.L)])
+        idx = np.where(idx < self.mut_rate)
+        ind1.genetype[idx] = 1 - ind1.genetype[idx]
+        return ind1
 
     def tell(self, fitness):
-        pass
+        for ind, fit in zip(self.pop, fitness):
+            ind.fitness = fit
+        new_pop = sorted(self.pop, key=lambda ind: ind.fitness)[::-1]
+        elite_pop = new_pop[:self.elite_pop]
+        child_pop = []
+        for _ in range(self.pop_size-self.elite_pop):
+            parent = random.choice(elite_pop)
+            child_pop.append(self.mutation(parent))
+        elite_pop.extend(child_pop)
+        self.pop = elite_pop
+        # for ind in self.pop:
+        #     ind.fitness = 0.
 
 if __name__ == '__main__':
     # pop = create_population(10, 5, 13)
@@ -199,22 +135,29 @@ if __name__ == '__main__':
     # for i in adj_dict:
     #     print(adj_dict[i])
     
-    # env = gym.make('BipedalWalker-v3')
-    # state = env.reset()
-    # state_var_list = [StateVar(maxlen=10) for _ in state]
-    # [svar.update(s) for svar,s in zip(state_var_list, state)]
-    # done = False
-    # while not done:
-    #     state, r, done, _ = env.step(env.action_space.sample())
+    Nnode = 10
+    max_len = 5
+    hid_dim = 6
+    env = gym.make('BipedalWalker-v3')
+    state = env.reset()
+    state_vars = [StateVar(max_len) for _ in state]
+    [svar.update(s) for svar, s in zip(state_vars, state)]
     
-    # model = GAT()
-    # print(model(torch.ones(1,10)))
-
     es = ES(pop_size=100,
             mutation_rate=0.5,
+            crossover_rate=0.5,
             obs_dim=2,
-            Nnode=2,
+            Nnode=Nnode,
             elite_rate=0.15)
-    print(es.pop[0].genetype)
-    es.mutation(es.pop[0])
-    print(es.pop[0].genetype)
+    
+    pop = es.ask()
+    # es.tell(np.random.rand(100))
+    graphs = [translate(ind) for ind in pop]
+
+    Internal_var = torch.zeros((Nnode, max_len), dtype=torch.float32)
+    model = GAT(inpt_dim=max_len, hidden_dim=hid_dim, out_dim=5)
+    s,i = model(state_vars, Internal_var, graphs[0])
+    # print(s,i)
+
+    
+
