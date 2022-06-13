@@ -166,23 +166,32 @@ class ES:
     def __init__(self,
                 pop_size,
                 mutation_rate,
+                crossover_rate,
                 obs_dim,
                 Nnode,
                 elite_rate,
                 ) -> None:
         self.pop_size = pop_size
         self.mut_rate = mutation_rate
+        self.cross_rate = crossover_rate
         self.pop = create_population(pop_size, obs_dim, Nnode)
         self.elite_rate = elite_rate
         self.elite_pop = pop_size * elite_rate
     
     def ask(self,):
         return self.pop
+        
+    def crossover(self, ind1, ind2):
+        idx = np.array([random.random() for _ in range(ind1.L)])
+        idx = np.where(idx<self.mut_rate)
 
-    def mutation(self,):
-        pass
+    def mutation(self, ind:Individual):
+        idx = np.array([random.random() for _ in range(ind.L)])
+        idx = np.where(idx<self.mut_rate)
+        ind.genetype[idx] = 1 - ind.genetype[idx]
 
     def tell(self, fitness):
+        pass
 
 if __name__ == '__main__':
     # pop = create_population(10, 5, 13)
@@ -197,5 +206,15 @@ if __name__ == '__main__':
     # done = False
     # while not done:
     #     state, r, done, _ = env.step(env.action_space.sample())
-    model = GAT()
-    print(model(torch.ones(1,10)))
+    
+    # model = GAT()
+    # print(model(torch.ones(1,10)))
+
+    es = ES(pop_size=100,
+            mutation_rate=0.5,
+            obs_dim=2,
+            Nnode=2,
+            elite_rate=0.15)
+    print(es.pop[0].genetype)
+    es.mutation(es.pop[0])
+    print(es.pop[0].genetype)
