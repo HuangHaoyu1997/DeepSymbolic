@@ -1,6 +1,7 @@
 from collections import deque
 from copy import deepcopy
-import gym, pickle, random
+from turtle import forward
+import gym, pickle, random, sys
 import numpy as np
 import torch
 import torch.nn as nn
@@ -56,27 +57,60 @@ class StateVar:
         self.buffer = deque(maxlen=self.max_len)
         [self.buffer.append(0.) for _ in range(self.max_len)]
 
-class GAT(nn.Module):
+class Update(nn.Module):
+    def __init__(self, hidden_dim) -> None:
+        super(Update, self).__init__()
+        self.hidden_dim = hidden_dim
+        self.encoder = nn.Linear(2*hidden_dim, hidden_dim)
+
+    def forward(self, aggr, hut_1):
+        x = torch.cat((aggr, hut_1), -1)
+        hut = F.relu(self.encoder(x))
+        return hut
+
+
+class GNN(nn.Module):
     def __init__(self, inpt_dim, hidden_dim, out_dim) -> None:
-        super(GAT, self).__init__()
+        super(GNN, self).__init__()
         self.inpt_dim = inpt_dim
         self.out_dim = out_dim
         self.hid_dim = hidden_dim
         
-        self.encoding_fc = nn.Linear(inpt_dim, hidden_dim)
-        self.update_fc = nn.Linear(hidden_dim, hidden_dim)
+        self.encoding_fc1 = nn.Linear(inpt_dim, hidden_dim)
+        self.encoding_fc2 = nn.Linear(hidden_dim, hidden_dim)
+        self.update_fc1 = Update(hidden_dim)
+        self.update_fc2 = Update(hidden_dim)
+        self.out_fc = nn.Linear(hidden_dim, out_dim)
+
+    def forward(self, state, internal, graph):
+        # layer 1
+        # message sending
+        state_embed = F.relu(self.encoding_fc1(state))
+        internal_embed = F.relu(self.encoding_fc1(internal))
         
-    def forward(self, state_vars, internal, graph):
-        state = torch.tensor([svar.buffer for svar in state_vars])
-        
-        state_embed = F.relu(self.encoding_fc(state))
-        internal_embed = F.relu(self.encoding_fc(internal))
-        
+        # aggregation and update
+        hu1 = torch.zeros((Nnode, self.hid_dim))
         for key in graph:
-            state_neigh, var_neigh = graph[key]
-            print(state_neigh, var_neigh)
-            print(state_embed[state_neigh].sum(0))
-        return state_embed, internal_embed
+            # aggregation
+            state_neigh, internal_neigh = graph[key]
+            aggregation = state_embed[state_neigh].sum(0) + internal_embed[internal_neigh].sum(0)
+            # update
+            hu1[key] = self.update_fc1(aggregation, internal_embed[key])
+        
+        # layer 2
+        # message sending
+        state_embed = F.relu(self.encoding_fc2(state_embed))
+        internal_embed = F.relu(self.encoding_fc2(hu1))
+        # aggregation and update
+        hu2 = torch.zeros((Nnode, self.hid_dim))
+        for key in graph:
+            # aggregation
+            state_neigh, internal_neigh = graph[key]
+            aggregation = state_embed[state_neigh].sum(0) + internal_embed[internal_neigh].sum(0)
+            # update
+            hu2[key] = self.update_fc2(aggregation, internal_embed[key])
+        out = self.out_fc(hu2.sum())
+        return hu1, hu2
 
 
 class ES:
@@ -154,10 +188,10 @@ if __name__ == '__main__':
     # es.tell(np.random.rand(100))
     graphs = [translate(ind) for ind in pop]
 
-    Internal_var = torch.zeros((Nnode, max_len), dtype=torch.float32)
-    model = GAT(inpt_dim=max_len, hidden_dim=hid_dim, out_dim=5)
-    s,i = model(state_vars, Internal_var, graphs[0])
-    # print(s,i)
+    Internal_var = torch.rand((Nnode, max_len), dtype=torch.float32)
+    model = GNN(inpt_dim=max_len, hidden_dim=hid_dim, out_dim=5)
+    state = torch.tensor([svar.buffer for svar in state_vars])
+    hus = model(state, Internal_var, graphs[0])
+    print(hus)
 
-    
 
