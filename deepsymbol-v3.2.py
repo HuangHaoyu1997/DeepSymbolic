@@ -18,14 +18,14 @@ run_time = (time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime()))[:19]
 
 env_name = 'Oil' # 'CartPole-v1' # 'CartPoleContinuous'
 logdir = './results/log-'+env_name+'-'+run_time+'.txt'
-
+ray.init(num_cpus = config.num_parallel)
 
 OW_config = Oil_Config()
 env = Oil_World(OW_config, 1000, 5, 3, 3, history_len=5)
 env.reset()
 inpt_dim = len(env._get_modulate_obs())
 out_dim = 1
-ray.init(num_cpus = config.num_parallel)
+
 dir = './results/ckpt_deepsymbol-v31_' + env_name
 
 if not os.path.exists(dir):
@@ -39,7 +39,7 @@ def rollout(env:Oil_World, ds:DeepSymbol, solution, num_episode=config.rollout_e
         if env.time % env.day_rounds != 0:
             return 0
         std = np.std(env.market.oil_price_his)
-        if std < 20 and std > 150:
+        if std < 20 and std > 80:
             return -1
         else:
             return 1

@@ -68,7 +68,6 @@ class Update(nn.Module):
         hut = F.relu(self.encoder(x))
         return hut
 
-
 class GNN(nn.Module):
     def __init__(self, inpt_dim, hidden_dim, out_dim) -> None:
         super(GNN, self).__init__()
@@ -109,9 +108,9 @@ class GNN(nn.Module):
             aggregation = state_embed[state_neigh].sum(0) + internal_embed[internal_neigh].sum(0)
             # update
             hu2[key] = self.update_fc2(aggregation, internal_embed[key])
-        out = self.out_fc(hu2.sum())
-        return hu1, hu2
-
+        # print(hu2.sum(0).shape)
+        out = self.out_fc(hu2.sum(0))
+        return hu1, hu2, out
 
 class ES:
     def __init__(self,
