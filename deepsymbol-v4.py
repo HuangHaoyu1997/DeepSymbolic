@@ -57,11 +57,16 @@ class StateVar:
         self.buffer = deque(maxlen=self.max_len)
         [self.buffer.append(0.) for _ in range(self.max_len)]
 
+def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
+    torch.nn.init.orthogonal_(layer.weight, std)
+    torch.nn.init.constant_(layer.bias, bias_const)
+    return layer
+
 class Update(nn.Module):
     def __init__(self, hidden_dim) -> None:
         super(Update, self).__init__()
         self.hidden_dim = hidden_dim
-        self.encoder = nn.Linear(2*hidden_dim, hidden_dim)
+        self.encoder = layer_init(nn.Linear(2*hidden_dim, hidden_dim))
 
     def forward(self, aggr, hut_1):
         x = torch.cat((aggr, hut_1), -1)
@@ -75,11 +80,11 @@ class GNN(nn.Module):
         self.out_dim = out_dim
         self.hid_dim = hidden_dim
         
-        self.encoding_fc1 = nn.Linear(inpt_dim, hidden_dim)
-        self.encoding_fc2 = nn.Linear(hidden_dim, hidden_dim)
+        self.encoding_fc1 = layer_init(nn.Linear(inpt_dim, hidden_dim))
+        self.encoding_fc2 = layer_init(nn.Linear(hidden_dim, hidden_dim))
         self.update_fc1 = Update(hidden_dim)
         self.update_fc2 = Update(hidden_dim)
-        self.out_fc = nn.Linear(hidden_dim, out_dim)
+        self.critic = layer_init(nn.Linear(hidden_dim, out_dim))
 
     def forward(self, state, internal, graph):
         # layer 1
@@ -109,7 +114,7 @@ class GNN(nn.Module):
             # update
             hu2[key] = self.update_fc2(aggregation, internal_embed[key])
         # print(hu2.sum(0).shape)
-        out = self.out_fc(hu2.sum(0))
+        out = self.critic(hu2.sum(0))
         return hu1, hu2, out
 
 class ES:
