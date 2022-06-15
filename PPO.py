@@ -8,6 +8,7 @@ import torch.nn.functional as F
 from torch.distributions import Beta
 
 class Args:
+    verbose = True
     exp_name = os.path.basename(__file__).rstrip(".py")
     seed = 123
     torch_deterministic = True
@@ -137,8 +138,9 @@ def main(args:Args):
 
             for item in info:
                 if "episode" in item.keys():
-                    # print(f"global_step={global_step}, episodic_return={item['episode']['r']}, time={time.time()-start_time}")
-                    # start_time = time.time()
+                    if args.verbose: 
+                        print(f"global_step={global_step}, episodic_return={item['episode']['r']}, time={time.time()-start_time}")
+                        start_time = time.time()
                     break
 
         # bootstrap value if not done
@@ -178,7 +180,7 @@ def main(args:Args):
         b_values = values.reshape(-1)
 
         # Optimizing the policy and value network
-        print('start training')
+        if args.verbose: print('start training')
         b_inds = np.arange(args.batch_size)
         clipfracs = []
         for _ in range(args.update_epochs):
