@@ -1,4 +1,4 @@
-import os, random, time
+import os, random, time, ray
 import gym
 import numpy as np
 import torch
@@ -8,11 +8,11 @@ import torch.nn.functional as F
 from torch.distributions import Beta
 
 class Args:
-    verbose = True
+    verbose = False
     exp_name = os.path.basename(__file__).rstrip(".py")
     seed = 123
     torch_deterministic = True
-    cuda = True
+    cuda = False
     env_id = "LunarLanderContinuous-v2" # 'BipedalWalker-v3'
     total_timesteps = 1000000
     learning_rate = 3e-4
@@ -83,8 +83,9 @@ def set_seed(args:Args):
     random.seed(args.seed)
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
-    torch.backends.cudnn.deterministic = args.torch_deterministic
+    # torch.backends.cudnn.deterministic = args.torch_deterministic
 
+@ray.remote
 def main(args:Args):
     # run_name = f"{args.env_id}__{args.exp_name}__{args.seed}__{int(time.time())}"
     set_seed(args)
@@ -138,6 +139,7 @@ def main(args:Args):
 
             for item in info:
                 if "episode" in item.keys():
+                    current_r = item['episode']['r']
                     if args.verbose: 
                         print(f"global_step={global_step}, episodic_return={item['episode']['r']}, time={time.time()-start_time}")
                         start_time = time.time()
@@ -234,7 +236,15 @@ def main(args:Args):
             if args.target_kl is not None:
                 if approx_kl > args.target_kl: break
     envs.close()
+    return current_r
 
 if __name__ == "__main__":
+    generation = 10
     args = Args()
-    main(args)
+    ray.init(num_cpus=40)
+    for _ in range(generation):
+        run_id = [main.remote(args) for _ in range(5)]
+        reward = ray.get(run_id)
+        print(reward)
+    ray.shutdown()
+    
