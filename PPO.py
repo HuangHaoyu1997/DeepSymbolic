@@ -1,4 +1,3 @@
-# docs and experiment results can be found at https://docs.cleanrl.dev/rl-algorithms/ppo/#ppo_continuous_actionpy
 import os, random, time
 import gym
 import numpy as np
@@ -6,14 +5,14 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
-from torch.distributions import Normal, Beta
+from torch.distributions import Beta
 
 class Args:
     exp_name = os.path.basename(__file__).rstrip(".py")
     seed = 123
     torch_deterministic = True
     cuda = True
-    env_id = 'BipedalWalker-v3' # "LunarLanderContinuous-v2",
+    env_id = "LunarLanderContinuous-v2" # 'BipedalWalker-v3'
     total_timesteps = 1000000
     learning_rate = 3e-4
     num_envs = 8 # the number of parallel game environments
@@ -79,27 +78,24 @@ class Agent(nn.Module):
             action = probs.sample()
         return action, probs.log_prob(action).sum(1), probs.entropy().sum(1), self.get_value(xx)
 
-
-if __name__ == "__main__":
-    args = Args()
-    run_name = f"{args.env_id}__{args.exp_name}__{args.seed}__{int(time.time())}"
-
+def set_seed(args:Args):
     random.seed(args.seed)
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
     torch.backends.cudnn.deterministic = args.torch_deterministic
 
+def main(args:Args):
+    # run_name = f"{args.env_id}__{args.exp_name}__{args.seed}__{int(time.time())}"
+    set_seed(args)
     device = torch.device("cuda" if torch.cuda.is_available() and args.cuda else "cpu")
-
     envs = gym.vector.AsyncVectorEnv(
         [make_env(args.env_id, args.seed + i) for i in range(args.num_envs)]
     )
-    assert isinstance(envs.single_action_space, gym.spaces.Box), "only continuous action space is supported"
 
     agent = Agent(envs).to(device)
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
 
-    # ALGO Logic: Storage setup
+    # Storage setup
     obs = torch.zeros((args.num_steps, args.num_envs) + envs.single_observation_space.shape).to(device)
     actions = torch.zeros((args.num_steps, args.num_envs) + envs.single_action_space.shape).to(device)
     logprobs = torch.zeros((args.num_steps, args.num_envs)).to(device)
@@ -107,7 +103,7 @@ if __name__ == "__main__":
     dones = torch.zeros((args.num_steps, args.num_envs)).to(device)
     values = torch.zeros((args.num_steps, args.num_envs)).to(device)
 
-    # TRY NOT TO MODIFY: start the game
+    # start the game
     global_step = 0
     start_time = time.time()
     
@@ -141,8 +137,8 @@ if __name__ == "__main__":
 
             for item in info:
                 if "episode" in item.keys():
-                    print(f"global_step={global_step}, episodic_return={item['episode']['r']}, time={time.time()-start_time}")
-                    start_time = time.time()
+                    # print(f"global_step={global_step}, episodic_return={item['episode']['r']}, time={time.time()-start_time}")
+                    # start_time = time.time()
                     break
 
         # bootstrap value if not done
@@ -185,7 +181,7 @@ if __name__ == "__main__":
         print('start training')
         b_inds = np.arange(args.batch_size)
         clipfracs = []
-        for epoch in range(args.update_epochs):
+        for _ in range(args.update_epochs):
             np.random.shuffle(b_inds)
             for start in range(0, args.batch_size, args.minibatch_size):
                 end = start + args.minibatch_size
@@ -197,7 +193,7 @@ if __name__ == "__main__":
 
                 with torch.no_grad():
                     # calculate approx_kl http://joschu.net/blog/kl-approx.html
-                    old_approx_kl = (-logratio).mean()
+                    # old_approx_kl = (-logratio).mean()
                     approx_kl = ((ratio - 1) - logratio).mean()
                     clipfracs += [((ratio - 1.0).abs() > args.clip_coef).float().mean().item()]
 
@@ -235,5 +231,8 @@ if __name__ == "__main__":
 
             if args.target_kl is not None:
                 if approx_kl > args.target_kl: break
-        
     envs.close()
+
+if __name__ == "__main__":
+    args = Args()
+    main(args)
