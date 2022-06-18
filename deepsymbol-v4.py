@@ -174,7 +174,7 @@ if __name__ == '__main__':
     #     print(adj_dict[i])
     
     Nnode = 10
-    max_len = 5
+    max_len = 1
     hid_dim = 6
     env = gym.make('BipedalWalker-v3')
     state = env.reset()
@@ -195,7 +195,8 @@ if __name__ == '__main__':
     Internal_var = torch.rand((Nnode, max_len), dtype=torch.float32)
     model = GNN(inpt_dim=max_len, hidden_dim=hid_dim, out_dim=5)
     state = torch.tensor([svar.buffer for svar in state_vars])
-    hus = model(state, Internal_var, graphs[0])
-    print(hus)
+    print(state.shape)
+    hus1, hus2, out = model(state, Internal_var, graphs[0])
+    print(out)
 
 
