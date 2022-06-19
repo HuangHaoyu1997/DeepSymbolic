@@ -56,7 +56,7 @@ def set_seed(args:Args):
     torch.backends.cudnn.deterministic = args.torch_deterministic
 
 # @ray.remote
-def main(args:Args):
+def main(args:Args, graph):
     warnings.filterwarnings('ignore')
     # run_name = f"{args.env_id}__{args.exp_name}__{args.seed}__{int(time.time())}"
     set_seed(args)
@@ -101,8 +101,10 @@ def main(args:Args):
 
             # ALGO LOGIC: action logic
             with torch.no_grad():
-                print(next_obs, next_obs.unsqueeze_(-1).shape)
-                action, logprob, _, value = agent.get_action_and_value(next_obs)
+                Internal_var = torch.rand((args.num_envs, args.Nnode, args.max_len), dtype=torch.float32)
+                action, logprob, _, value = agent.get_action_and_value(state=next_obs.unsqueeze_(-1),
+                                                                       internal=Internal_var,
+                                                                       graph=graph)
                 values[step] = value.flatten()
             actions[step] = action
             logprobs[step] = logprob
@@ -132,7 +134,9 @@ def main(args:Args):
 
         # bootstrap value if not done
         with torch.no_grad():
-            next_value = agent.get_value(next_obs).reshape(1, -1)
+            next_value = agent.get_value(state=next_obs.unsqueeze_(-1),
+                                         internal=Internal_var,
+                                         graph=graph).reshape(1, -1)
             if args.gae:
                 advantages = torch.zeros_like(rewards).to(device)
                 lastgaelam = 0
@@ -175,8 +179,9 @@ def main(args:Args):
             for start in range(0, args.batch_size, args.minibatch_size):
                 end = start + args.minibatch_size
                 mb_inds = b_inds[start:end]
-
-                _, newlogprob, entropy, newvalue = agent.get_action_and_value(b_obs[mb_inds], b_actions[mb_inds])
+                print(b_obs[mb_inds].shape[0])
+                _, newlogprob, entropy, newvalue = agent.get_action_and_value(state=b_obs[mb_inds].unsqueeze_(-1), 
+                                                                              internal=b_actions[mb_inds])
                 logratio = newlogprob - b_logprobs[mb_inds]
                 ratio = logratio.exp()
 
@@ -229,14 +234,23 @@ if __name__ == '__main__':
     
     
     args = Args()
+    es = ES(pop_size=args.pop_size,
+            mutation_rate=args.mutation_rate,
+            crossover_rate=0.5,
+            obs_dim=args.obs_dim,
+            Nnode=args.Nnode,
+            elite_rate=args.elite_rate)
+    pop = es.ask()
+    # es.tell(np.random.rand(100))
+    graphs = [translate(ind) for ind in pop]
     
     env = gym.make('LunarLanderContinuous-v2')
-    state = env.reset()
-    state_vars = [StateVar(args.max_len) for _ in state]
-    [svar.update(s) for svar, s in zip(state_vars, state)]
-    state = torch.tensor([[svar.buffer for svar in state_vars],
-                          [svar.buffer for svar in state_vars]])
-    print(state.shape)
+    # state = env.reset()
+    # state_vars = [StateVar(args.max_len) for _ in state]
+    # [svar.update(s) for svar, s in zip(state_vars, state)]
+    # state = torch.tensor([[svar.buffer for svar in state_vars],
+    #                       [svar.buffer for svar in state_vars]])
+    # print(state.shape)
     
     # ray.init(num_cpus=args.num_cpus)
     # for _ in range(args.generation):
@@ -244,29 +258,16 @@ if __name__ == '__main__':
     #     reward = ray.get(run_id)
     #     print(reward)
     # ray.shutdown()
-    for _ in range(5):
-        current_r, time_consuming = main(args)
-        print(current_r, time_consuming)
     
+    current_r, time_consuming = main(args, graphs[0])
+    print(current_r, time_consuming)
+
     
     # pop = create_population(10, 5, 13)
     # adj_dict = translate(pop[0])
     # for i in adj_dict:
     #     print(adj_dict[i])
     
-    
-    
-    es = ES(pop_size=args.pop_size,
-            mutation_rate=args.mutation_rate,
-            crossover_rate=0.5,
-            obs_dim=args.obs_dim,
-            Nnode=args.Nnode,
-            elite_rate=args.elite_rate)
-    
-    pop = es.ask()
-    # es.tell(np.random.rand(100))
-    graphs = [translate(ind) for ind in pop]
-    # print(graphs[0])
 
     Internal_var = torch.rand((2, args.Nnode, args.max_len), dtype=torch.float32)
     model = GNN(inpt_dim=args.max_len, 
