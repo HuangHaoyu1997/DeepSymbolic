@@ -6,18 +6,21 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 from torch.distributions import Beta
+import warnings
+warnings.filterwarnings('ignore')
 
 class Args:
     verbose = False
     exp_name = os.path.basename(__file__).rstrip(".py")
     seed = 123
+    num_cpus = 6
     torch_deterministic = True
     cuda = False
     env_id = "LunarLanderContinuous-v2" # 'BipedalWalker-v3'
-    total_timesteps = 1000000
+    total_timesteps = 500000
     learning_rate = 3e-4
     num_envs = 8 # the number of parallel game environments
-    num_steps = 500 # the number of steps to run in each environment per policy rollout
+    num_steps = 300 # the number of steps to run in each environment per policy rollout
     anneal_lr = True
     gae = True
     gae_lambda = 0.95
@@ -69,15 +72,16 @@ class Agent(nn.Module):
         x = self.critic(x)
         return x
 
-    def get_action_and_value(self, xx, action=None):
-        x = torch.tanh(self.fc1(xx))
+    def get_action_and_value(self, x, action=None):
+        x = torch.tanh(self.fc1(x))
         x = torch.tanh(self.fc2(x))
+        value = self.critic(x)
         alpha = F.softplus(self.actor_A(x))
         beta = F.softplus(self.actor_B(x))
         probs = Beta(alpha, beta)
         if action is None:
             action = probs.sample()
-        return action, probs.log_prob(action).sum(1), probs.entropy().sum(1), self.get_value(xx)
+        return action, probs.log_prob(action).sum(1), probs.entropy().sum(1), value
 
 def set_seed(args:Args):
     random.seed(args.seed)
@@ -85,8 +89,9 @@ def set_seed(args:Args):
     torch.manual_seed(args.seed)
     # torch.backends.cudnn.deterministic = args.torch_deterministic
 
-@ray.remote
+# @ray.remote
 def main(args:Args):
+    warnings.filterwarnings('ignore')
     # run_name = f"{args.env_id}__{args.exp_name}__{args.seed}__{int(time.time())}"
     set_seed(args)
     device = torch.device("cuda" if torch.cuda.is_available() and args.cuda else "cpu")
@@ -107,9 +112,9 @@ def main(args:Args):
 
     # start the game
     global_step = 0
-    start_time = time.time()
+    start_time = start_time_ = time.time()
     
-    next_obs = torch.Tensor(envs.reset()).to(device)
+    next_obs = torch.Tensor(envs.reset(seed=args.seed)).to(device)
     next_done = torch.zeros(args.num_envs).to(device)
     num_updates = args.total_timesteps // args.batch_size # total update counts
 
@@ -136,14 +141,24 @@ def main(args:Args):
             next_obs, reward, done, info = envs.step(action.cpu().numpy()*2-1)
             rewards[step] = torch.tensor(reward).to(device).view(-1)
             next_obs, next_done = torch.Tensor(next_obs).to(device), torch.Tensor(done).to(device)
-
-            for item in info:
-                if "episode" in item.keys():
-                    current_r = item['episode']['r']
-                    if args.verbose: 
-                        print(f"global_step={global_step}, episodic_return={item['episode']['r']}, time={time.time()-start_time}")
-                        start_time = time.time()
-                    break
+            
+            if 'episode' in info.keys(): 
+                for item in info['episode']:
+                    if item is not None:
+                        current_r = item['r']
+                        if args.verbose:
+                            print(f"global_step={global_step}, episodic_return={item['r']}, time={time.time()-start_time}")
+                            start_time = time.time()
+                        break
+            # for item in info:
+            #     # if "episode" in item.keys():
+            #     if item == "episode":
+            #         print(info[item])
+            #         current_r = info[item]['r']
+            #         if args.verbose: 
+            #             print(f"global_step={global_step}, episodic_return={item['episode']['r']}, time={time.time()-start_time}")
+            #             start_time = time.time()
+            #         break
 
         # bootstrap value if not done
         with torch.no_grad():
@@ -236,15 +251,18 @@ def main(args:Args):
             if args.target_kl is not None:
                 if approx_kl > args.target_kl: break
     envs.close()
-    return current_r
+    print('training time:', time.time() - start_time_)
+    return current_r, time.time() - start_time_
 
 if __name__ == "__main__":
     generation = 10
     args = Args()
-    ray.init(num_cpus=40)
-    for _ in range(generation):
-        run_id = [main.remote(args) for _ in range(5)]
-        reward = ray.get(run_id)
-        print(reward)
-    ray.shutdown()
-    
+    # ray.init(num_cpus=args.num_cpus)
+    # for _ in range(generation):
+    #     run_id = [main.remote(args) for _ in range(5)]
+    #     reward = ray.get(run_id)
+    #     print(reward)
+    # ray.shutdown()
+    for _ in range(5):
+        current_r, time_consuming = main(args)
+        print(current_r, time_consuming)
