@@ -65,7 +65,10 @@ def main(args:Args):
         [make_env(args.env_id, args.seed + i) for i in range(args.num_envs)]
     )
 
-    agent = GNN(inpt_dim=args.max_len, hidden_dim=args.hid_dim, out_dim=args.action_dim).to(device)
+    agent = GNN(inpt_dim=args.max_len, 
+                hidden_dim=args.hid_dim, 
+                out_dim=args.action_dim,
+                Nnode=args.Nnode).to(device)
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
 
     # Storage setup
@@ -98,6 +101,7 @@ def main(args:Args):
 
             # ALGO LOGIC: action logic
             with torch.no_grad():
+                print(next_obs, next_obs.unsqueeze_(-1).shape)
                 action, logprob, _, value = agent.get_action_and_value(next_obs)
                 values[step] = value.flatten()
             actions[step] = action
@@ -225,6 +229,15 @@ if __name__ == '__main__':
     
     
     args = Args()
+    
+    env = gym.make('LunarLanderContinuous-v2')
+    state = env.reset()
+    state_vars = [StateVar(args.max_len) for _ in state]
+    [svar.update(s) for svar, s in zip(state_vars, state)]
+    state = torch.tensor([[svar.buffer for svar in state_vars],
+                          [svar.buffer for svar in state_vars]])
+    print(state.shape)
+    
     # ray.init(num_cpus=args.num_cpus)
     # for _ in range(args.generation):
     #     run_id = [main.remote(args) for _ in range(5)]
@@ -242,10 +255,6 @@ if __name__ == '__main__':
     #     print(adj_dict[i])
     
     
-    env = gym.make('BipedalWalker-v3')
-    state = env.reset()
-    state_vars = [StateVar(args.max_len) for _ in state]
-    [svar.update(s) for svar, s in zip(state_vars, state)]
     
     es = ES(pop_size=args.pop_size,
             mutation_rate=args.mutation_rate,
@@ -260,9 +269,10 @@ if __name__ == '__main__':
     # print(graphs[0])
 
     Internal_var = torch.rand((2, args.Nnode, args.max_len), dtype=torch.float32)
-    model = GNN(inpt_dim=args.max_len, hidden_dim=args.hid_dim, out_dim=5)
-    state = torch.tensor([[svar.buffer for svar in state_vars],
-                          [svar.buffer for svar in state_vars]])
+    model = GNN(inpt_dim=args.max_len, 
+                hidden_dim=args.hid_dim, 
+                out_dim=5,
+                Nnode=args.Nnode)
     
     hus1, hus2, out = model(state, Internal_var, graphs[0])
     print(out)
