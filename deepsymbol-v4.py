@@ -1,12 +1,14 @@
 from copy import deepcopy
-import gym, pickle, random, sys
+import gym, pickle, random, sys, os, time, ray
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.distributions import Beta
-from algorithms.utils_v4 import Individual, create_population, translate, StateVar, GNN
-
+from algorithms.utils_v4 import *
+import torch.optim as optim
+import warnings
+warnings.filterwarnings('ignore')
 
 class ES:
     def __init__(self,
@@ -58,21 +60,6 @@ class ES:
         # for ind in self.pop:
         #     ind.fitness = 0.
 
-
-
-
-
-import os, random, time, ray
-import gym
-import numpy as np
-import torch
-import torch.nn as nn
-import torch.optim as optim
-import torch.nn.functional as F
-from torch.distributions import Beta
-import warnings
-warnings.filterwarnings('ignore')
-
 class Args:
     verbose = False
     exp_name = os.path.basename(__file__).rstrip(".py")
@@ -101,20 +88,7 @@ class Args:
     batch_size = int(num_envs * num_steps) # 8*2048
     minibatch_size = int(batch_size // num_minibatches)
 
-def make_env(env_id, seed):
-    def thunk():
-        env = gym.make(env_id)
-        env = gym.wrappers.RecordEpisodeStatistics(env)
-        env = gym.wrappers.ClipAction(env)
-        env = gym.wrappers.NormalizeObservation(env)
-        env = gym.wrappers.TransformObservation(env, lambda obs: np.clip(obs, -10, 10))
-        env = gym.wrappers.NormalizeReward(env)
-        env = gym.wrappers.TransformReward(env, lambda reward: np.clip(reward, -10, 10))
-        env.seed(seed)
-        env.action_space.seed(seed)
-        env.observation_space.seed(seed)
-        return env
-    return thunk
+
 
 def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
     torch.nn.init.orthogonal_(layer.weight, std)

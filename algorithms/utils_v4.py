@@ -1,5 +1,5 @@
 import numpy as np
-import random
+import random, gym
 from collections import deque
 import torch
 import torch.nn as nn
@@ -131,3 +131,18 @@ class GNN(nn.Module):
             # update
             hu2[:, key, :] = self.update_fc2(aggregation, internal_embed[:, key])
         return hu1, hu2
+
+def make_env(env_id, seed):
+    def thunk():
+        env = gym.make(env_id)
+        env = gym.wrappers.RecordEpisodeStatistics(env)
+        env = gym.wrappers.ClipAction(env)
+        env = gym.wrappers.NormalizeObservation(env)
+        env = gym.wrappers.TransformObservation(env, lambda obs: np.clip(obs, -10, 10))
+        env = gym.wrappers.NormalizeReward(env)
+        env = gym.wrappers.TransformReward(env, lambda reward: np.clip(reward, -10, 10))
+        env.seed(seed)
+        env.action_space.seed(seed)
+        env.observation_space.seed(seed)
+        return env
+    return thunk
