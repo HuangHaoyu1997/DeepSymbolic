@@ -102,7 +102,7 @@ def main(args:Args, graph):
             # ALGO LOGIC: action logic
             with torch.no_grad():
                 Internal_var = torch.rand((args.num_envs, args.Nnode, args.max_len), dtype=torch.float32)
-                action, logprob, _, value = agent.get_action_and_value(state=next_obs.unsqueeze_(-1),
+                action, logprob, _, value = agent.get_action_and_value(state=next_obs.unsqueeze(-1),
                                                                        internal=Internal_var,
                                                                        graph=graph)
                 values[step] = value.flatten()
@@ -134,7 +134,7 @@ def main(args:Args, graph):
 
         # bootstrap value if not done
         with torch.no_grad():
-            next_value = agent.get_value(state=next_obs.unsqueeze_(-1),
+            next_value = agent.get_value(state=next_obs.unsqueeze(-1),
                                          internal=Internal_var,
                                          graph=graph).reshape(1, -1)
             if args.gae:
@@ -179,9 +179,11 @@ def main(args:Args, graph):
             for start in range(0, args.batch_size, args.minibatch_size):
                 end = start + args.minibatch_size
                 mb_inds = b_inds[start:end]
-                print(b_obs[mb_inds].shape[0])
-                _, newlogprob, entropy, newvalue = agent.get_action_and_value(state=b_obs[mb_inds].unsqueeze_(-1), 
-                                                                              internal=b_actions[mb_inds])
+                Internal_var = torch.rand((b_obs[mb_inds].shape[0], args.Nnode, args.max_len), dtype=torch.float32)
+                _, newlogprob, entropy, newvalue = agent.get_action_and_value(state=b_obs[mb_inds].unsqueeze(-1), 
+                                                                              internal=Internal_var,
+                                                                              graph=graph,
+                                                                              action=b_actions[mb_inds])
                 logratio = newlogprob - b_logprobs[mb_inds]
                 ratio = logratio.exp()
 
@@ -276,6 +278,5 @@ if __name__ == '__main__':
                 Nnode=args.Nnode)
     
     hus1, hus2, out = model(state, Internal_var, graphs[0])
-    print(out)
 
 
