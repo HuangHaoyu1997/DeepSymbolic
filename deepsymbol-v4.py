@@ -1,4 +1,3 @@
-from copy import deepcopy
 import gym, pickle, random, sys, os, time, ray
 import numpy as np
 import torch
@@ -10,61 +9,22 @@ import torch.optim as optim
 import warnings
 warnings.filterwarnings('ignore')
 
-class ES:
-    def __init__(self,
-                pop_size,
-                mutation_rate,
-                crossover_rate,
-                obs_dim,
-                Nnode,
-                elite_rate,
-                ) -> None:
-        self.pop_size = pop_size
-        self.mut_rate = mutation_rate
-        self.cross_rate = crossover_rate
-        self.pop = create_population(pop_size, obs_dim, Nnode)
-        self.elite_rate = elite_rate
-        self.elite_pop = int(pop_size * elite_rate)
-    
-    def ask(self,):
-        # solutions = [ind.genetype for ind in self.pop]
-        # return solutions
-        return self.pop
-
-    def crossover(self, ind1:Individual, ind2:Individual):
-        idx = np.array([random.random() for _ in range(ind1.L)])
-        idx = np.where(idx<self.cross_rate)
-        cross_batch1 = deepcopy(ind1.genetype[idx])
-        cross_batch2 = deepcopy(ind2.genetype[idx])
-        ind1.genetype[idx] = cross_batch2
-        ind2.genetype[idx] = cross_batch1
-
-    def mutation(self, ind:Individual):
-        ind1 = deepcopy(ind)
-        idx = np.array([random.random() for _ in range(ind1.L)])
-        idx = np.where(idx < self.mut_rate)
-        ind1.genetype[idx] = 1 - ind1.genetype[idx]
-        return ind1
-
-    def tell(self, fitness):
-        for ind, fit in zip(self.pop, fitness):
-            ind.fitness = fit
-        new_pop = sorted(self.pop, key=lambda ind: ind.fitness)[::-1]
-        elite_pop = new_pop[:self.elite_pop]
-        child_pop = []
-        for _ in range(self.pop_size-self.elite_pop):
-            parent = random.choice(elite_pop)
-            child_pop.append(self.mutation(parent))
-        elite_pop.extend(child_pop)
-        self.pop = elite_pop
-        # for ind in self.pop:
-        #     ind.fitness = 0.
-
 class Args:
     verbose = False
     exp_name = os.path.basename(__file__).rstrip(".py")
-    seed = 123
+    
     num_cpus = 6
+    Nnode = 5 # number of internal nodes
+    max_len = 1
+    hid_dim = 6
+    generation = 10
+    pop_size = 100
+    mutation_rate = 0.5
+    obs_dim = 8 # for lunarlander
+    action_dim = 2 # for lunarlander
+    elite_rate = 0.15
+    
+    seed = 123
     torch_deterministic = True
     cuda = False
     env_id = "LunarLanderContinuous-v2" # 'BipedalWalker-v3'
@@ -89,43 +49,11 @@ class Args:
     minibatch_size = int(batch_size // num_minibatches)
 
 
-
-def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
-    torch.nn.init.orthogonal_(layer.weight, std)
-    torch.nn.init.constant_(layer.bias, bias_const)
-    return layer
-
-class Agent(nn.Module):
-    def __init__(self, envs):
-        super().__init__()
-        self.fc1 = layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod(), 64))
-        self.fc2 = layer_init(nn.Linear(64, 64))
-        self.critic = layer_init(nn.Linear(64, 1), std=1.0)
-        self.actor_A = layer_init(nn.Linear(64, np.prod(envs.single_action_space.shape)), std=0.01)
-        self.actor_B = layer_init(nn.Linear(64, np.prod(envs.single_action_space.shape)), std=0.01)
-        
-    def get_value(self, x):
-        x = torch.tanh(self.fc1(x))
-        x = torch.tanh(self.fc2(x))
-        x = self.critic(x)
-        return x
-
-    def get_action_and_value(self, x, action=None):
-        x = torch.tanh(self.fc1(x))
-        x = torch.tanh(self.fc2(x))
-        value = self.critic(x)
-        alpha = F.softplus(self.actor_A(x))
-        beta = F.softplus(self.actor_B(x))
-        probs = Beta(alpha, beta)
-        if action is None:
-            action = probs.sample()
-        return action, probs.log_prob(action).sum(1), probs.entropy().sum(1), value
-
 def set_seed(args:Args):
     random.seed(args.seed)
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
-    # torch.backends.cudnn.deterministic = args.torch_deterministic
+    torch.backends.cudnn.deterministic = args.torch_deterministic
 
 # @ray.remote
 def main(args:Args):
@@ -137,7 +65,7 @@ def main(args:Args):
         [make_env(args.env_id, args.seed + i) for i in range(args.num_envs)]
     )
 
-    agent = Agent(envs).to(device)
+    agent = GNN(inpt_dim=args.max_len, hidden_dim=args.hid_dim, out_dim=args.action_dim).to(device)
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
 
     # Storage setup
@@ -296,10 +224,9 @@ def main(args:Args):
 if __name__ == '__main__':
     
     
-    generation = 10
     args = Args()
     # ray.init(num_cpus=args.num_cpus)
-    # for _ in range(generation):
+    # for _ in range(args.generation):
     #     run_id = [main.remote(args) for _ in range(5)]
     #     reward = ray.get(run_id)
     #     print(reward)
@@ -314,28 +241,26 @@ if __name__ == '__main__':
     # for i in adj_dict:
     #     print(adj_dict[i])
     
-    Nnode = 5
-    max_len = 1
-    hid_dim = 6
+    
     env = gym.make('BipedalWalker-v3')
     state = env.reset()
-    state_vars = [StateVar(max_len) for _ in state]
+    state_vars = [StateVar(args.max_len) for _ in state]
     [svar.update(s) for svar, s in zip(state_vars, state)]
     
-    es = ES(pop_size=100,
-            mutation_rate=0.5,
+    es = ES(pop_size=args.pop_size,
+            mutation_rate=args.mutation_rate,
             crossover_rate=0.5,
-            obs_dim=2,
-            Nnode=Nnode,
-            elite_rate=0.15)
+            obs_dim=args.obs_dim,
+            Nnode=args.Nnode,
+            elite_rate=args.elite_rate)
     
     pop = es.ask()
     # es.tell(np.random.rand(100))
     graphs = [translate(ind) for ind in pop]
     # print(graphs[0])
 
-    Internal_var = torch.rand((2, Nnode, max_len), dtype=torch.float32)
-    model = GNN(inpt_dim=max_len, hidden_dim=hid_dim, out_dim=5)
+    Internal_var = torch.rand((2, args.Nnode, args.max_len), dtype=torch.float32)
+    model = GNN(inpt_dim=args.max_len, hidden_dim=args.hid_dim, out_dim=5)
     state = torch.tensor([[svar.buffer for svar in state_vars],
                           [svar.buffer for svar in state_vars]])
     

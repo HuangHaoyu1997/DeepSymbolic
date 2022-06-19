@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.distributions import Beta
+from copy import deepcopy
 
 class Individual:
     def __init__(self, M, N, ) -> None:
@@ -71,6 +72,56 @@ class Update(nn.Module):
         x = torch.cat((aggr, hut_1), -1)
         hut = F.relu(self.encoder(x))
         return hut
+
+class ES:
+    def __init__(self,
+                pop_size,
+                mutation_rate,
+                crossover_rate,
+                obs_dim,
+                Nnode,
+                elite_rate,
+                ) -> None:
+        self.pop_size = pop_size
+        self.mut_rate = mutation_rate
+        self.cross_rate = crossover_rate
+        self.pop = create_population(pop_size, obs_dim, Nnode)
+        self.elite_rate = elite_rate
+        self.elite_pop = int(pop_size * elite_rate)
+    
+    def ask(self,):
+        # solutions = [ind.genetype for ind in self.pop]
+        # return solutions
+        return self.pop
+
+    def crossover(self, ind1:Individual, ind2:Individual):
+        idx = np.array([random.random() for _ in range(ind1.L)])
+        idx = np.where(idx<self.cross_rate)
+        cross_batch1 = deepcopy(ind1.genetype[idx])
+        cross_batch2 = deepcopy(ind2.genetype[idx])
+        ind1.genetype[idx] = cross_batch2
+        ind2.genetype[idx] = cross_batch1
+
+    def mutation(self, ind:Individual):
+        ind1 = deepcopy(ind)
+        idx = np.array([random.random() for _ in range(ind1.L)])
+        idx = np.where(idx < self.mut_rate)
+        ind1.genetype[idx] = 1 - ind1.genetype[idx]
+        return ind1
+
+    def tell(self, fitness):
+        for ind, fit in zip(self.pop, fitness):
+            ind.fitness = fit
+        new_pop = sorted(self.pop, key=lambda ind: ind.fitness)[::-1]
+        elite_pop = new_pop[:self.elite_pop]
+        child_pop = []
+        for _ in range(self.pop_size-self.elite_pop):
+            parent = random.choice(elite_pop)
+            child_pop.append(self.mutation(parent))
+        elite_pop.extend(child_pop)
+        self.pop = elite_pop
+        # for ind in self.pop:
+        #     ind.fitness = 0.
 
 class GNN(nn.Module):
     def __init__(self, inpt_dim, hidden_dim, out_dim, Nnode) -> None:
