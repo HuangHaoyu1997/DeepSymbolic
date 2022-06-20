@@ -10,7 +10,7 @@ import warnings
 warnings.filterwarnings('ignore')
 
 class Args:
-    verbose = False
+    verbose = True
     exp_name = os.path.basename(__file__).rstrip(".py")
     
     num_cpus = 6

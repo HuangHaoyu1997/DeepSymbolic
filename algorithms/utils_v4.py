@@ -149,6 +149,7 @@ class GNN(nn.Module):
         value = self.critic(hu2.sum(1))
         alpha = F.softplus(self.actor_a(hu2.sum(1)))
         beta = F.softplus(self.actor_b(hu2.sum(1)))
+        print(alpha.shape, beta.shape)
         probs = Beta(alpha, beta)
         if action is None:
             action = probs.sample()
