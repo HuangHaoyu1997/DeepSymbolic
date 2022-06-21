@@ -15,13 +15,14 @@ from stable_baselines3.common.buffers import ReplayBuffer
 
 class Args:
     exp_name = os.path.basename(__file__).rstrip(".py")
-    seed = 123
+    seed = int(time.time())
     torch_deterministic = True
     cuda = True
 
     # Algorithm specific arguments
     env_id = 'LunarLanderContinuous-v2' # 'BipedalWalker-v3' # "HopperBulletEnv-v0"
-    total_timesteps = 1000000 # total timesteps of the experiments
+    solving = 250 # solved reward
+    total_timesteps = 200000 # total timesteps of the experiments
     buffer_size = int(1e6) # the replay memory buffer size
     gamma = 0.99
     tau = 0.005 # target smoothing coefficient (default: 0.005)
@@ -106,8 +107,6 @@ if __name__ == "__main__":
     envs = gym.vector.AsyncVectorEnv([make_env_sac(args.env_id, args.seed)])
     assert isinstance(envs.single_action_space, gym.spaces.Box), "only continuous action space is supported"
 
-    max_action = float(envs.single_action_space.high[0])
-
     actor = Actor(envs).to(device)
     qf1 = SoftQNetwork(envs).to(device)
     qf2 = SoftQNetwork(envs).to(device)
@@ -134,12 +133,13 @@ if __name__ == "__main__":
         action_space = envs.single_action_space,
         device = device,
         n_envs = 1,
-        handle_timeout_termination=True,
+        handle_timeout_termination = True,
     )
-    start_time = time.time()
-
+    
     # start the game
+    start_time = time.time()
     obs = envs.reset()
+    running_reward = 0 # running avg reward
     for global_step in range(args.total_timesteps):
         # put action logic here
         if global_step < args.learning_starts:
@@ -154,14 +154,14 @@ if __name__ == "__main__":
         # record rewards for plotting purposes
         for info in infos:
             if "episode" in info.keys():
-                print("global_step=%d, episodic_return=%.2f"%(global_step, info['episode']['r']))
+                running_reward = 0.05*info['episode']['r'] + 0.95*running_reward
+                print("global_step=%d, episodic_return=%.2f, %.2f"%(global_step, info['episode']['r'], running_reward))
                 break
 
         # save data to reply buffer; handle `terminal_observation`
         real_next_obs = next_obs.copy()
         for idx, done in enumerate(dones):
-            if done:
-                real_next_obs[idx] = infos[idx]["terminal_observation"]
+            if done: real_next_obs[idx] = infos[idx]["terminal_observation"]
         rb.add(obs, real_next_obs, actions, rewards, dones, infos)
 
         # TRY NOT TO MODIFY: CRUCIAL step easy to overlook
@@ -188,9 +188,8 @@ if __name__ == "__main__":
             q_optimizer.step()
 
             if global_step % args.policy_frequency == 0:  # TD 3 Delayed update support
-                for _ in range(
-                    args.policy_frequency
-                ):  # compensate for the delay by doing 'actor_update_interval' instead of 1
+                print('start training')
+                for _ in range(args.policy_frequency):  # compensate for the delay by doing 'actor_update_interval' instead of 1
                     pi, log_pi, _ = actor.get_action(data.observations)
                     qf1_pi = qf1(data.observations, pi)
                     qf2_pi = qf2(data.observations, pi)
@@ -220,5 +219,9 @@ if __name__ == "__main__":
 
             if global_step % 100 == 0:
                 pass # print("SPS:", int(global_step / (time.time() - start_time)))
+        if running_reward > args.solving:
+            print('solved', running_reward)
+            break
 
+    print('total time:%.2f'%(time.time()-start_time))
     envs.close()
