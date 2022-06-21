@@ -16,7 +16,7 @@ class Args:
     num_cpus = 6
     Nnode = 16 # number of internal nodes
     max_len = 1
-    hid_dim = 6
+    hid_dim = 16
     generation = 10
     pop_size = 100
     mutation_rate = 0.5
@@ -28,7 +28,7 @@ class Args:
     torch_deterministic = True
     cuda = False
     env_id = "LunarLanderContinuous-v2" # 'BipedalWalker-v3'
-    total_timesteps = 500000
+    total_timesteps = 2000000
     learning_rate = 1e-3
     num_envs = 8 # the number of parallel game environments
     num_steps = 300 # the number of steps to run in each environment per policy rollout
