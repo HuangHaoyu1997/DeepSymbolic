@@ -1,10 +1,5 @@
 # docs and experiment results can be found at https://docs.cleanrl.dev/rl-algorithms/sac/#sac_continuous_actionpy
-import os
-import random
-import time
-from distutils.util import strtobool
-
-import gym
+import os, random, time, gym
 import numpy as np
 import torch
 import torch.nn as nn
@@ -15,13 +10,13 @@ from stable_baselines3.common.buffers import ReplayBuffer
 
 class Args:
     exp_name = os.path.basename(__file__).rstrip(".py")
-    seed = int(time.time())
+    seed = 1234 # int(time.time())
     torch_deterministic = True
     cuda = True
 
     # Algorithm specific arguments
     env_id = 'LunarLanderContinuous-v2' # 'BipedalWalker-v3' # "HopperBulletEnv-v0"
-    solving = 250 # solved reward
+    solving = 200 # solved reward
     total_timesteps = 200000 # total timesteps of the experiments
     buffer_size = int(1e6) # the replay memory buffer size
     gamma = 0.99
@@ -30,7 +25,7 @@ class Args:
     exploration_noise = 0.1 # the scale of exploration noise
     learning_starts = 5e3
     policy_lr = 3e-4 # the learning rate of the policy network optimizer
-    q_lr = 1e-3 # the learning rate of the Q network network optimizer
+    q_lr = 1e-3 # the learning rate of the Q network optimizer
     policy_frequency = 2 # the frequency of training policy (delayed)
     target_network_frequency = 1 # Denis Yarats' implementation delays this by 2.the frequency of updates for the target nerworks")
     noise_clip = 0.5 # noise clip parameter of the Target Policy Smoothing Regularization
@@ -188,7 +183,7 @@ if __name__ == "__main__":
             q_optimizer.step()
 
             if global_step % args.policy_frequency == 0:  # TD 3 Delayed update support
-                print('start training')
+                # print('start training')
                 for _ in range(args.policy_frequency):  # compensate for the delay by doing 'actor_update_interval' instead of 1
                     pi, log_pi, _ = actor.get_action(data.observations)
                     qf1_pi = qf1(data.observations, pi)
