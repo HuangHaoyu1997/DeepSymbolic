@@ -10,166 +10,17 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from algorithms.utils_v4 import Actor, SoftQNetwork, make_env_sac
-
-class ReplayBuffer(BaseBuffer):
-    """
-    Replay buffer used in off-policy algorithms like SAC/TD3.
-    :param buffer_size: Max number of element in the buffer
-    :param observation_space: Observation space
-    :param action_space: Action space
-    :param device:
-    :param n_envs: Number of parallel environments
-    :param optimize_memory_usage: Enable a memory efficient variant
-        of the replay buffer which reduces by almost a factor two the memory used,
-        at a cost of more complexity.
-    :param handle_timeout_termination: Handle timeout termination (due to timelimit)
-        separately and treat the task as infinite horizon task.
-    """
-
-    def __init__(
-        self,
-        buffer_size: int,
-        observation_space,
-        action_space,
-        device = torch.device('cpu'),
-        n_envs: int = 1,
-        optimize_memory_usage: bool = False,
-        handle_timeout_termination: bool = True,
-    ):
-        super().__init__(buffer_size, observation_space, action_space, device, n_envs=n_envs)
-
-        # Adjust buffer size
-        self.buffer_size = max(buffer_size // n_envs, 1)
-
-        # Check that the replay buffer can fit into the memory
-        import psutil
-        mem_available = psutil.virtual_memory().available
-
-        self.optimize_memory_usage = optimize_memory_usage
-        self.observations = np.zeros((self.buffer_size, self.n_envs) + self.obs_shape, dtype=observation_space.dtype)
-
-        if optimize_memory_usage:
-            # `observations` contains also the next observation
-            self.next_observations = None
-        else:
-            self.next_observations = np.zeros((self.buffer_size, self.n_envs) + self.obs_shape, dtype=observation_space.dtype)
-
-        self.actions = np.zeros((self.buffer_size, self.n_envs, self.action_dim), dtype=action_space.dtype)
-
-        self.rewards = np.zeros((self.buffer_size, self.n_envs), dtype=np.float32)
-        self.dones = np.zeros((self.buffer_size, self.n_envs), dtype=np.float32)
-        # Handle timeouts termination properly if needed
-        # see https://github.com/DLR-RM/stable-baselines3/issues/284
-        self.handle_timeout_termination = handle_timeout_termination
-        self.timeouts = np.zeros((self.buffer_size, self.n_envs), dtype=np.float32)
-
-        if psutil is not None:
-            total_memory_usage = self.observations.nbytes + self.actions.nbytes + self.rewards.nbytes + self.dones.nbytes
-
-            if self.next_observations is not None:
-                total_memory_usage += self.next_observations.nbytes
-
-            if total_memory_usage > mem_available:
-                # Convert to GB
-                total_memory_usage /= 1e9
-                mem_available /= 1e9
-                warnings.warn(
-                    "This system does not have apparently enough memory to store the complete "
-                    f"replay buffer {total_memory_usage:.2f}GB > {mem_available:.2f}GB"
-                )
-
-    def add(
-        self,
-        obs: np.ndarray,
-        next_obs: np.ndarray,
-        action: np.ndarray,
-        reward: np.ndarray,
-        done: np.ndarray,
-        infos: List[Dict[str, Any]],
-    ) -> None:
-
-        # Reshape needed when using multiple envs with discrete observations
-        # as numpy cannot broadcast (n_discrete,) to (n_discrete, 1)
-        if isinstance(self.observation_space, spaces.Discrete):
-            obs = obs.reshape((self.n_envs,) + self.obs_shape)
-            next_obs = next_obs.reshape((self.n_envs,) + self.obs_shape)
-
-        # Same, for actions
-        if isinstance(self.action_space, spaces.Discrete):
-            action = action.reshape((self.n_envs, self.action_dim))
-
-        # Copy to avoid modification by reference
-        self.observations[self.pos] = np.array(obs).copy()
-
-        if self.optimize_memory_usage:
-            self.observations[(self.pos + 1) % self.buffer_size] = np.array(next_obs).copy()
-        else:
-            self.next_observations[self.pos] = np.array(next_obs).copy()
-
-        self.actions[self.pos] = np.array(action).copy()
-        self.rewards[self.pos] = np.array(reward).copy()
-        self.dones[self.pos] = np.array(done).copy()
-
-        if self.handle_timeout_termination:
-            self.timeouts[self.pos] = np.array([info.get("TimeLimit.truncated", False) for info in infos])
-
-        self.pos += 1
-        if self.pos == self.buffer_size:
-            self.full = True
-            self.pos = 0
-
-    def sample(self, batch_size: int, env: Optional[VecNormalize] = None) -> ReplayBufferSamples:
-        """
-        Sample elements from the replay buffer.
-        Custom sampling when using memory efficient variant,
-        as we should not sample the element with index `self.pos`
-        See https://github.com/DLR-RM/stable-baselines3/pull/28#issuecomment-637559274
-
-        :param batch_size: Number of element to sample
-        :param env: associated gym VecEnv
-            to normalize the observations/rewards when sampling
-        :return:
-        """
-        if not self.optimize_memory_usage:
-            return super().sample(batch_size=batch_size, env=env)
-        # Do not sample the element with index `self.pos` as the transitions is invalid
-        # (we use only one array to store `obs` and `next_obs`)
-        if self.full:
-            batch_inds = (np.random.randint(1, self.buffer_size, size=batch_size) + self.pos) % self.buffer_size
-        else:
-            batch_inds = np.random.randint(0, self.pos, size=batch_size)
-        return self._get_samples(batch_inds, env=env)
-
-    def _get_samples(self, batch_inds: np.ndarray, env: Optional[VecNormalize] = None) -> ReplayBufferSamples:
-        # Sample randomly the env idx
-        env_indices = np.random.randint(0, high=self.n_envs, size=(len(batch_inds),))
-
-        if self.optimize_memory_usage:
-            next_obs = self._normalize_obs(self.observations[(batch_inds + 1) % self.buffer_size, env_indices, :], env)
-        else:
-            next_obs = self._normalize_obs(self.next_observations[batch_inds, env_indices, :], env)
-
-        data = (
-            self._normalize_obs(self.observations[batch_inds, env_indices, :], env),
-            self.actions[batch_inds, env_indices, :],
-            next_obs,
-            # Only use dones that are not due to timeouts
-            # deactivated by default (timeouts is initialized as an array of False)
-            (self.dones[batch_inds, env_indices] * (1 - self.timeouts[batch_inds, env_indices])).reshape(-1, 1),
-            self._normalize_reward(self.rewards[batch_inds, env_indices].reshape(-1, 1), env),
-        )
-        return ReplayBufferSamples(*tuple(map(self.to_torch, data)))
-
+from algorithms.utils_v4 import make_env_sac, set_seed
+from stable_baselines3.common.buffers import ReplayBuffer
 
 class Args:
     exp_name = os.path.basename(__file__).rstrip(".py")
     seed = 123
     torch_deterministic = True
-    cuda = False
+    cuda = True
 
     # Algorithm specific arguments
-    env_id = "HopperBulletEnv-v0"
+    env_id = 'LunarLanderContinuous-v2' # 'BipedalWalker-v3' # "HopperBulletEnv-v0"
     total_timesteps = 1000000 # total timesteps of the experiments
     buffer_size = int(1e6) # the replay memory buffer size
     gamma = 0.99
@@ -190,18 +41,65 @@ class Args:
 
 
 # ALGO LOGIC: initialize agent here:
+class SoftQNetwork(nn.Module):
+    def __init__(self, env):
+        super().__init__()
+        self.fc1 = nn.Linear(np.array(env.single_observation_space.shape).prod() + np.prod(env.single_action_space.shape), 256)
+        self.fc2 = nn.Linear(256, 256)
+        self.fc3 = nn.Linear(256, 1)
 
+    def forward(self, x, a):
+        x = torch.cat([x, a], 1)
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        x = self.fc3(x)
+        return x
+
+class Actor(nn.Module):
+    def __init__(self, env):
+        super().__init__()
+        self.fc1 = nn.Linear(np.array(env.single_observation_space.shape).prod(), 256)
+        self.fc2 = nn.Linear(256, 256)
+        self.fc_mean = nn.Linear(256, np.prod(env.single_action_space.shape))
+        self.fc_logstd = nn.Linear(256, np.prod(env.single_action_space.shape))
+        # action rescaling
+        self.action_scale = torch.FloatTensor((env.single_action_space.high - env.single_action_space.low) / 2.0)
+        self.action_bias = torch.FloatTensor((env.single_action_space.high + env.single_action_space.low) / 2.0)
+
+    def forward(self, x):
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        mean = self.fc_mean(x)
+        log_std = self.fc_logstd(x)
+        log_std = torch.tanh(log_std)
+        log_std = args.LOG_STD_MIN + 0.5 * (args.LOG_STD_MAX - args.LOG_STD_MIN) * (log_std + 1)  # From SpinUp / Denis Yarats
+
+        return mean, log_std
+
+    def get_action(self, x):
+        mean, log_std = self(x)
+        std = log_std.exp()
+        normal = torch.distributions.Normal(mean, std)
+        x_t = normal.rsample()  # for reparameterization trick (mean + std * N(0,1))
+        y_t = torch.tanh(x_t)
+        action = y_t * self.action_scale + self.action_bias
+        log_prob = normal.log_prob(x_t)
+        # Enforcing Action Bound
+        log_prob -= torch.log(self.action_scale * (1 - y_t.pow(2)) + 1e-6)
+        log_prob = log_prob.sum(1, keepdim=True)
+        mean = torch.tanh(mean) * self.action_scale + self.action_bias
+        return action, log_prob, mean
+
+    def to(self, device):
+        self.action_scale = self.action_scale.to(device)
+        self.action_bias = self.action_bias.to(device)
+        return super().to(device)
 
 if __name__ == "__main__":
     args = Args()
     run_name = f"{args.env_id}__{args.exp_name}__{args.seed}__{int(time.time())}"
 
-    # TRY NOT TO MODIFY: seeding
-    random.seed(args.seed)
-    np.random.seed(args.seed)
-    torch.manual_seed(args.seed)
-    torch.backends.cudnn.deterministic = args.torch_deterministic
-
+    set_seed(args)
     device = torch.device("cuda" if torch.cuda.is_available() and args.cuda else "cpu")
 
     # env setup
@@ -240,29 +138,29 @@ if __name__ == "__main__":
     )
     start_time = time.time()
 
-    # TRY NOT TO MODIFY: start the game
+    # start the game
     obs = envs.reset()
     for global_step in range(args.total_timesteps):
-        # ALGO LOGIC: put action logic here
+        # put action logic here
         if global_step < args.learning_starts:
             actions = np.array([envs.single_action_space.sample() for _ in range(envs.num_envs)])
         else:
             actions, _, _ = actor.get_action(torch.Tensor(obs).to(device))
             actions = actions.detach().cpu().numpy()
 
-        # TRY NOT TO MODIFY: execute the game and log data.
+        # execute the game and log data.
         next_obs, rewards, dones, infos = envs.step(actions)
 
-        # TRY NOT TO MODIFY: record rewards for plotting purposes
+        # record rewards for plotting purposes
         for info in infos:
             if "episode" in info.keys():
-                print(f"global_step={global_step}, episodic_return={info['episode']['r']}")
+                print("global_step=%d, episodic_return=%.2f"%(global_step, info['episode']['r']))
                 break
 
-        # TRY NOT TO MODIFY: save data to reply buffer; handle `terminal_observation`
+        # save data to reply buffer; handle `terminal_observation`
         real_next_obs = next_obs.copy()
-        for idx, d in enumerate(dones):
-            if d:
+        for idx, done in enumerate(dones):
+            if done:
                 real_next_obs[idx] = infos[idx]["terminal_observation"]
         rb.add(obs, real_next_obs, actions, rewards, dones, infos)
 
@@ -321,6 +219,6 @@ if __name__ == "__main__":
                     target_param.data.copy_(args.tau * param.data + (1 - args.tau) * target_param.data)
 
             if global_step % 100 == 0:
-                print("SPS:", int(global_step / (time.time() - start_time)))
+                pass # print("SPS:", int(global_step / (time.time() - start_time)))
 
     envs.close()

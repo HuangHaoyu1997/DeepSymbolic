@@ -189,6 +189,22 @@ class GNN(nn.Module):
         
         return hu1, hu2, hu3
 
+def set_seed(args):
+    random.seed(args.seed)
+    np.random.seed(args.seed)
+    torch.manual_seed(args.seed)
+    torch.backends.cudnn.deterministic = args.torch_deterministic
+
+
+def make_env_sac(env_id, seed):
+    def thunk():
+        env = gym.make(env_id)
+        env = gym.wrappers.RecordEpisodeStatistics(env)
+        env.seed(seed)
+        env.action_space.seed(seed)
+        env.observation_space.seed(seed)
+        return env
+    return thunk
 def make_env(env_id, seed):
     def thunk():
         env = gym.make(env_id)
@@ -203,3 +219,5 @@ def make_env(env_id, seed):
         env.observation_space.seed(seed)
         return env
     return thunk
+
+

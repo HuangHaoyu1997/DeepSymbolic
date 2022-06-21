@@ -48,13 +48,6 @@ class Args:
     batch_size = int(num_envs * num_steps) # 8*2048
     minibatch_size = int(batch_size // num_minibatches)
 
-
-def set_seed(args:Args):
-    random.seed(args.seed)
-    np.random.seed(args.seed)
-    torch.manual_seed(args.seed)
-    torch.backends.cudnn.deterministic = args.torch_deterministic
-
 # @ray.remote
 def main(args:Args, graph):
     warnings.filterwarnings('ignore')
@@ -245,6 +238,7 @@ if __name__ == '__main__':
             elite_rate=args.elite_rate)
     pop = es.ask()
     # es.tell(np.random.rand(100))
+    pop[0].genetype = np.ones_like(pop[0].genetype)
     graphs = [translate(ind) for ind in pop]
     
     env = gym.make('LunarLanderContinuous-v2')
@@ -261,7 +255,7 @@ if __name__ == '__main__':
     #     reward = ray.get(run_id)
     #     print(reward)
     # ray.shutdown()
-    
+    pop[0].genetype
     current_r, time_consuming = main(args, graphs[0])
     print(current_r, time_consuming)
 
