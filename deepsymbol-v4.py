@@ -14,7 +14,7 @@ class Args:
     exp_name = os.path.basename(__file__).rstrip(".py")
     
     num_cpus = 6
-    Nnode = 5 # number of internal nodes
+    Nnode = 16 # number of internal nodes
     max_len = 1
     hid_dim = 6
     generation = 10
@@ -24,12 +24,12 @@ class Args:
     action_dim = 2 # for lunarlander
     elite_rate = 0.15
     
-    seed = 123
+    seed = 1234
     torch_deterministic = True
     cuda = False
     env_id = "LunarLanderContinuous-v2" # 'BipedalWalker-v3'
     total_timesteps = 500000
-    learning_rate = 3e-4
+    learning_rate = 1e-3
     num_envs = 8 # the number of parallel game environments
     num_steps = 300 # the number of steps to run in each environment per policy rollout
     anneal_lr = True
@@ -180,6 +180,7 @@ def main(args:Args, graph):
                 end = start + args.minibatch_size
                 mb_inds = b_inds[start:end]
                 Internal_var = torch.rand((b_obs[mb_inds].shape[0], args.Nnode, args.max_len), dtype=torch.float32)
+                # print(b_actions[mb_inds],'\n\n')
                 _, newlogprob, entropy, newvalue = agent.get_action_and_value(state=b_obs[mb_inds].unsqueeze(-1), 
                                                                               internal=Internal_var,
                                                                               graph=graph,

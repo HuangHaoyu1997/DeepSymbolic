@@ -133,23 +133,27 @@ class GNN(nn.Module):
         
         self.encoding_fc1 = layer_init(nn.Linear(inpt_dim, hidden_dim))
         self.encoding_fc2 = layer_init(nn.Linear(hidden_dim, hidden_dim))
+        self.encoding_fc3 = layer_init(nn.Linear(hidden_dim, hidden_dim))
         self.update_fc1 = Update(hidden_dim)
         self.update_fc2 = Update(hidden_dim)
+        self.update_fc3 = Update(hidden_dim)
         self.critic = layer_init(nn.Linear(hidden_dim, 1))
         self.actor_a = layer_init(nn.Linear(hidden_dim, out_dim))
         self.actor_b = layer_init(nn.Linear(hidden_dim, out_dim))
     
     def get_value(self, state, internal, graph):
-        _, hu2 = self.ff(state, internal, graph)
-        value = self.critic(hu2.sum(1))
+        hu = self.ff(state, internal, graph)
+        value = self.critic(hu[-1].sum(1))
         return value
     
     def get_action_and_value(self, state, internal, graph, action=None):
-        hu1, hu2 = self.ff(state, internal, graph)
-        value = self.critic(hu2.sum(1))
-        alpha = F.softplus(self.actor_a(hu2.sum(1)))
-        beta = F.softplus(self.actor_b(hu2.sum(1)))
-        print(alpha.shape, beta.shape)
+        hu = self.ff(state, internal, graph)
+        value = self.critic(hu[-1].sum(1))
+        alpha = F.softplus(self.actor_a(hu[-1].sum(1)))
+        beta = F.softplus(self.actor_b(hu[-1].sum(1)))
+        alpha += 1e-3
+        beta += 1e-3
+        # print(alpha.shape, beta.shape)
         probs = Beta(alpha, beta)
         if action is None:
             action = probs.sample()
@@ -159,30 +163,31 @@ class GNN(nn.Module):
         batch_size = state.size(0)
         hu1 = torch.zeros((batch_size, self.Nnode, self.hid_dim))
         hu2 = torch.zeros((batch_size, self.Nnode, self.hid_dim))
+        hu3 = torch.zeros((batch_size, self.Nnode, self.hid_dim))
         # layer 1
-        # message sending
-        state_embed = F.relu(self.encoding_fc1(state))
+        state_embed = F.relu(self.encoding_fc1(state)) # message sending
         internal_embed = F.relu(self.encoding_fc1(internal))
-        
-        # aggregation and update
-        for key in graph:
-            # aggregation
+        for key in graph: # aggregation and update
             state_neigh, internal_neigh = graph[key]
             aggregation = state_embed[:, state_neigh].sum(1) + internal_embed[:, internal_neigh].sum(1)
-            # update
-            hu1[:, key, :] = self.update_fc1(aggregation, internal_embed[:, key])
+            hu1[:, key, :] = self.update_fc1(aggregation, internal_embed[:, key]) # update
         # layer 2
-        # message sending
         state_embed = F.relu(self.encoding_fc2(state_embed))
         internal_embed = F.relu(self.encoding_fc2(hu1))
-        # aggregation and update
         for key in graph:
-            # aggregation
             state_neigh, internal_neigh = graph[key]
             aggregation = state_embed[:, state_neigh].sum(1) + internal_embed[:, internal_neigh].sum(1)
-            # update
             hu2[:, key, :] = self.update_fc2(aggregation, internal_embed[:, key])
-        return hu1, hu2
+        # layer3
+        state_embed = F.relu(self.encoding_fc3(state_embed))
+        internal_embed = F.relu(self.encoding_fc3(hu2))
+        for key in graph:
+            state_neigh, internal_neigh = graph[key]
+            aggregation = state_embed[:, state_neigh].sum(1) + internal_embed[:, internal_neigh].sum(1)
+            hu3[:, key, :] = self.update_fc3(aggregation, internal_embed[:, key])
+        
+        
+        return hu1, hu2, hu3
 
 def make_env(env_id, seed):
     def thunk():
